@@ -1,0 +1,7 @@
+Field Measurement of Water Turbidity in Small Irrigation Canals
+
+In this project, our group installed five optical turbidity sensors in three irrigation canals near the university farm. The sensors measure how muddy the water is during the rainy season. Every sensor is connected to a small solar panel and an Arduino microcontroller board with a flash memory card.
+
+We collected the data every Friday morning for eight weeks. Sometimes the sensors had problems because leaves and plastic trash covered the glass lens. When this happened, the voltage reading dropped very fast to zero. We had to clean the lens by hand with a soft brush and clean water every week. 
+
+The collected data shows that water turbidity increases very quickly after heavy rain starts. In canal number two, the turbidity reached 450 NTU in just two hours after the rainstorm on September 14. But in canal number three, where farmers planted grass on both riverbanks, the turbidity was only 180 NTU. This shows that planting grass along the canal edge helps keep the water cleaner for rice fields. Our farmer survey also showed that 80% of local farmers prefer cleaner water for their pumps.

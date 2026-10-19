@@ -2,9 +2,9 @@
 
 ## Overview
 
-Veritext Stage 3 implements a multi-stage plagiarism detection engine designed to replicate the architectural rigor of enterprise academic integrity systems (such as Turnitin and Copyleaks) entirely with free, local, open-source technologies.
+Veritext Stage 3 implements a multi-stage plagiarism detection engine using free, local, open-source technologies. Veritext checks open sources and user-supplied references only; commercial tools also search private databases that are not available here.
 
-Enterprise plagiarism detectors operate in multiple tiers:
+The detection engine operates across multiple tiers:
 1. **Adversarial Sanitization & Normalization**: Strip evasion tactics (homoglyphs, zero-width characters, font tampering) and canonicalize text to token streams.
 2. **Winnowing Fingerprinting**: Rapidly identify verbatim and near-verbatim text runs using sub-linear document fingerprinting with guaranteed detection guarantees.
 3. **Dense Semantic Vector Search**: Detect paraphrasing, synonym substitution, and structural clause restructuring using neural sentence embeddings.
@@ -139,13 +139,14 @@ Tested on Ubuntu Linux (WSL2), 4-Core CPU, 8GB RAM allocation:
 
 ---
 
-## 6. Coverage Boundaries: Open-Source Engine vs. $50,000/yr Commercial Systems
+## 6. Coverage Boundaries: Open-Source Engine vs. Commercial Systems
 
-| Feature | Commercial Checkers (Turnitin, Copyleaks) | Veritext (Open-Source Free Engine) |
+Veritext checks open sources and user-supplied references only; commercial tools also search private databases that are not available here.
+
+| Feature | Commercial Checkers | Veritext (Open-Source Free Engine) |
 |---|---|---|
-| **Web Index Size** | Billions of crawled web pages | Targeted queries against 5 public APIs (arXiv, Crossref, OpenAlex, Semantic Scholar, Wikipedia) |
-| **Paywalled Research Databases** | Closed agreements with Elsevier, IEEE, Springer Nature, Wiley | Open-access articles only (via Crossref, OpenAlex, arXiv) + local user library |
-| **Proprietary Student Submissions** | Centralized cross-institutional database of past student essays | Fully local reference library (`data/references/`) indexed via FTS5 and winnowing |
-| **Data Privacy & Retention** | Retains and ingests student submissions into their proprietary databases | 100% offline-capable; zero data leaves the machine in offline mode |
-| **Explainability & Transparency** | Black-box percentage score | Fully explainable: character intervals, exact offsets, algorithm badges, JSON reports |
-| **API Costs & Licensing** | $10,000 - $50,000+ / year institutional contracts | 100% Free & Open Source (MIT License) |
+| **Web Index Scope** | Broad commercial web crawls | Targeted queries against 5 public APIs (arXiv, Crossref, OpenAlex, Semantic Scholar, Wikipedia) |
+| **Paywalled Databases** | Commercial publisher agreements | Open-access articles only (via Crossref, OpenAlex, arXiv) + local user library |
+| **Reference Database** | Cross-institutional student repositories | Fully local reference library (`data/references/`) indexed via FTS5 and winnowing |
+| **Data Privacy & Retention** | Ingests submissions into remote systems | 100% offline-capable; zero data leaves the machine in offline mode |
+| **Explainability & Transparency** | Proprietary algorithm scores | Fully explainable: character intervals, exact offsets, algorithm badges, JSON reports |

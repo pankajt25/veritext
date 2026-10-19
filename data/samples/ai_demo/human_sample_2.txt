@@ -1,0 +1,7 @@
+Observations from Catalytic Hydrogenation Bench Trials
+
+We initiated the reduction trial by dissolving 2.45 grams of substituted nitrobenzene in roughly 45 milliliters of anhydrous ethanol inside a thick-walled Parr reaction vessel. The palladium on activated charcoal catalyst (5% loading) was carefully added under an argon blanket to prevent spontaneous ignition. At first, the reaction proceeded sluggishly. Even after pressurizing the chamber to 40 psi of hydrogen and raising the mantle temperature to 50 degrees Celsius, very little gas uptake registered on the analog pressure gauge.
+
+At this point, we suspected the ethanol solvent contained trace moisture from an improperly sealed storage bottle. We quenched the mixture, filtered the catalyst through a celite pad, and re-evaporated the crude oil. 
+
+After switching to freshly distilled solvent dried over molecular sieves, the subsequent hydrogenation ran smoothly. Within thirty-five minutes, the pressure dropped by 18 psi, accompanied by a noticeable mild exotherm. Gas chromatography analysis of the crude filtrate revealed a 92% conversion to the desired primary aniline, alongside a small 4% unreacted nitro starting material peak that we easily separated via flash column chromatography with hexane and ethyl acetate.

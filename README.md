@@ -124,10 +124,12 @@ Veritext Stage 2 integrates candidate source search from five open knowledge sou
 
 ### Coverage Comparison: Open vs. Commercial Tools
 
-Commercial checkers (such as Turnitin, Copyleaks, or iThenticate) rely on:
+Veritext checks open sources and user-supplied references only; commercial tools also search private databases that are not available here.
+
+Commercial checkers rely on:
 - Proprietary global web crawlers archiving billions of active and historical web pages.
-- Closed, contractual institutional agreements with paywalled academic publishers (e.g., Elsevier, Springer Nature, Wiley, IEEE).
-- Centralized repositories of millions of previously submitted student essays.
+- Closed, contractual institutional agreements with paywalled academic publishers.
+- Centralized repositories of previously submitted student essays.
 
 In contrast, **Veritext is 100% free, open-source, and offline-capable**:
 - Operates with **zero paid APIs, zero API keys, and zero account requirements**.
@@ -154,7 +156,7 @@ python -m veritext.sources stats
 
 ## Plagiarism Detection Engine
 
-Veritext Stage 3 introduces a multi-tier plagiarism detection engine engineered to mirror the detection capabilities of enterprise software (such as Turnitin and Copyleaks) using strictly local, free, open-source components.
+Veritext Stage 3 introduces a multi-tier plagiarism detection engine using strictly local, free, open-source components. Veritext checks open sources and user-supplied references only; commercial tools also search private databases that are not available here.
 
 ### Detection Pipeline
 
@@ -165,18 +167,18 @@ Normalize & Strip Evasions ──> Winnowing Fingerprints ──> Dense Vector S
 
 1. **Text Canonicalisation (`veritext.normalize`)**: Enforces UTF-8, applies Unicode NFKC normalization, folds Cyrillic/Greek homoglyphs to Latin equivalents, strips zero-width and control characters (recording anomalies), unifies punctuation, and lemmatizes tokens with NLTK WordNet. Maintains an exact `offset_map` back to original raw character indices for UI highlighting.
 2. **Winnowing Fingerprinting (`veritext.fingerprint`)**: Employs the Schleimer-Wilkerson-Aiken winnowing algorithm ($k=5$ token $k$-grams, window $w=4$, rightmost tie-break) backed by signed 64-bit BLAKE2b hashes. Mathematically guarantees detection of any shared verbatim run of $\ge 8$ words while populating an SQLite inverted index (`data/veritext.sqlite`).
-3. **Semantic Vector Search (`veritext.similarity.semantic`)**: Segments documents and candidate sources into 1-to-2 sentence sliding windows, computes embeddings via `all-MiniLM-L6-v2`, caches vectors on disk in SQLite (`data/cache/embeddings_cache.sqlite`), and queries nearest neighbors using FAISS (`IndexFlatIP`). Spans covered by exact matches are masked out to eliminate redundant computation.
+3. **Semantic Vector Search (`veritext.similarity.semantic`)**: Segments documents and candidate sources into 1-to-2 sentence sliding windows, computes embeddings via `all-MiniLM-L6-v2`, caches vectors on disk in SQLite (`data/cache/embeddings_cache.sqlite`), and queries nearest neighbors using efficient NumPy cosine matrix multiplication. Spans covered by exact matches are masked out to eliminate redundant computation.
 4. **Hybrid Interval-Union Scoring (`veritext.similarity.scorer`)**: Computes character interval unions across exact and paraphrase matches to prevent double-counting overlapping spans, calculating overall similarity %, per-source breakdown, and ranked matching passages.
 5. **Optical Character Recognition (`veritext.ingest.ocr`)**: Detects scanned or textless PDF pages and routes them through `pypdfium2` and `RapidOCR` (optional dependency), degrading gracefully if unavailable.
 
-### Why Multi-Tier? (Turnitin/Copyleaks Parity with Free Tools)
+### Why Multi-Tier Detection?
 
 Single-algorithm checkers fail on real-world academic evasion:
 - *Pure vector search* is too computationally heavy for whole-library scans and blurs exact short-phrase boundaries.
 - *Pure string matching / n-grams* fail completely against basic paraphrasing, active-to-passive conversions, and synonym substitution.
 - *Naive text extraction* is vulnerable to zero-width space injection, Cyrillic homoglyph substitution, and white-text font tricks.
 
-By layering canonical text normalization, sub-linear winnowing indexing, neural semantic vector search, and interval union mathematics, Veritext achieves enterprise-grade detection accuracy while running 100% offline and cost-free. For in-depth mathematical proofs, parameter selection rationale, and benchmark analysis, see [docs/stage3.md](docs/stage3.md).
+By layering canonical text normalization, sub-linear winnowing indexing, neural semantic vector search, and interval union mathematics, Veritext achieves robust open-source detection while running 100% offline and cost-free. For in-depth mathematical proofs, parameter selection rationale, and benchmark analysis, see [docs/stage3.md](docs/stage3.md).
 
 ### Plagiarism Detection CLI
 
@@ -197,6 +199,73 @@ Veritext includes benchmark test files in `data/samples/plagiarism_demo/`:
 - **`copied_doc.txt`**: Verbatim copy from reference source $\rightarrow$ **~85.5% similarity (EXACT)**
 - **`paraphrased_doc.txt`**: Sentence-restructured academic concepts $\rightarrow$ **~39.9% similarity (PARAPHRASE)**
 - **`original_doc.txt`**: Unrelated document (Roman archaeology) $\rightarrow$ **0.0% similarity (Negative control)**
+
+---
+
+## AI-Written Text Detection Engine (Lite Mode)
+
+Veritext Stage 4 implements an AI-written text detection engine engineered specifically for resource-constrained systems (e.g. dual-core processors, 8 GB RAM, no GPU) running under WSL. It couples statistical stylometry with conservative causal language model perplexity (`distilgpt2`).
+
+### Detection Architecture
+
+```text
+Stylometric Suite ──────────┐
+(sentence variance, TTR,     │
+ n-grams, discourse markers) ├──> Weighted Logistic Ensemble ──> Overall AI Probability (0-100%)
+                             │     (data/config/ai_weights.json) ──> Confidence Band & Drivers
+distilgpt2 Language Model ───┘                                   ──> Sentence-Level Labels
+(perplexity, burstiness, log-rank)
+```
+
+1. **Lite Mode Constraints**: Restricted to `distilgpt2`, `torch.set_num_threads(2)`, 512-token chunks with 64-token overlap, and memory garbage collection directly after inference. The optional RoBERTa classifier (`Hello-SimpleAI/chatgpt-detector-roberta`) is opt-in via `--use-roberta` and is never loaded by default.
+2. **Stylometry-Only Fallback**: Model files are never downloaded silently. If model weights are not present, the detector executes on stylometry alone and flags `reduced_confidence: true`.
+3. **Minimum Text Requirement**: Text under 150 words returns `insufficient_text` rather than an ungrounded score.
+4. **Calibration**: Supports logistic regression fitting on custom labeled datasets via `python -m veritext.ai_detect --calibrate`. A tiny 30-row starter set is provided at `data/calibration/starter.csv` (*for demonstration purposes only*).
+
+### AI Detection CLI
+
+```bash
+# 1. Download required model weights (distilgpt2) explicitly
+python -m veritext.ai_detect --download-models
+
+# 2. Analyze a document (runs in full mode if models exist, otherwise stylometry-only)
+python -m veritext.ai_detect data/samples/ai_demo/human_sample_1.txt
+python -m veritext.ai_detect data/samples/ai_demo/ai_sample_1.txt
+
+# 3. Export complete analysis to JSON
+python -m veritext.ai_detect data/samples/ai_demo/ai_sample_1.txt --json ai_report.json
+
+# 4. Calibrate ensemble weights on a labeled CSV
+python -m veritext.ai_detect --calibrate data/calibration/starter.csv
+```
+
+### AI Detection Benchmark Demo Cases
+
+Veritext includes benchmark samples in `data/samples/ai_demo/`:
+- **`human_sample_1.txt`**: Academic critique with idiosyncratic syntax $\rightarrow$ **~6.4% AI probability**
+- **`human_sample_2.txt`**: Experimental lab procedure narrative $\rightarrow$ **~1.8% AI probability**
+- **`human_sample_3_esl.txt`**: Non-native English academic writing $\rightarrow$ **~1.3% AI probability**
+- **`ai_sample_1.txt`**: ChatGPT higher education essay with formulaic cadence $\rightarrow$ **~85.0% AI probability**
+- **`ai_sample_2.txt`**: Symmetrical renewable energy overview $\rightarrow$ **~88.9% AI probability**
+- **`ai_sample_3.txt`**: Remote work dynamics with low burstiness $\rightarrow$ **~82.3% AI probability**
+
+---
+
+## Limitations and Responsible Use
+
+> [!WARNING]
+> **AI-text detectors are probabilistic and can make errors.** Scores generated by Veritext represent statistical signals, not definitive proof of authorship.
+
+1. **Over-Flagging of Non-Native (ESL) Writers**: Multiple peer-reviewed studies show that AI detectors frequently over-flag non-native English writers who use straightforward grammatical structures and standard transition words. Veritext employs conservative weighting to reduce this risk, but instructors must never assume guilt based on scores.
+2. **Formulaic Human Writing**: Highly structured human prose (e.g., legal briefs, lab protocols, standardized test responses) naturally exhibits lower perplexity and uniform sentence lengths.
+3. **Short Text Unreliability**: Passages below 150 words cannot support reliable statistical feature extraction. Veritext explicitly refuses to score short text.
+4. **Light Editing Vulnerability**: Simple humanization tricks, paraphrasing, and typo insertion can alter language model perplexity and evade detection.
+5. **Ethical Guidelines**:
+   - Detection scores must **never be used as sole proof of academic misconduct**.
+   - Veritext is designed as a self-review educational tool to facilitate transparent dialogue between students and educators.
+
+Every CLI run and JSON output embeds the mandatory disclaimer:
+> *"Disclaimer: AI-text detection is probabilistic and may misidentify human or formulaic text. Scores should be used as an indicator for self-review, not as definitive proof of authorship."*
 
 ---
 

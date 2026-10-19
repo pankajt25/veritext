@@ -22,6 +22,11 @@ dist/
 # Data cache and temp files
 .cache/
 data/cache/
+data/models/
+models/
+.huggingface/
+huggingface/
+hf_cache/
 data/veritext.sqlite
 data/*.sqlite
 data/*.db

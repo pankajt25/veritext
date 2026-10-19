@@ -1,0 +1,7 @@
+Critical Perspectives on Neural Representations in Cognitive Science
+
+Over the past decade, cognitive neuroscientists have increasingly leaned on deep convolutional networks to model biological vision. But is this comparison genuinely justified? I am skeptical. While both systems process hierarchical representations, the biological brain operates under strict metabolic budgets that backpropagation blithely ignores.
+
+Consider the receptive fields in primate visual cortex V1 and V4. Biological neurons exhibit extensive lateral inhibition, recurrent feedback loops, and temporal spike dynamics. In contrast, standard feedforward artificial networks process static activation matrices in single forward sweeps. When researchers declare that an artificial layer "matches" primate neural firing rates, they usually mean that a linear ridge regression fit explained a modest fraction of the response variance. That is hardly an equivalence. It is merely a correlation.
+
+Furthermore, we cannot disregard training regimens. A human toddler acquires invariant object categorization after seeing only a handful of examples across varied lighting conditions. Modern vision architectures demand millions of annotated images, curated over thousands of GPU hours. If we want neural models that truly explain primate cognition, we must move beyond brute-force optimization and confront the reality of embodied, sparse biological computation.

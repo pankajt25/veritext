@@ -267,36 +267,17 @@ def find_semantic_matches(
     doc_vectors = encode_texts_cached(doc_texts, cache=cache, model=model)
     cand_vectors = encode_texts_cached(cand_texts, cache=cache, model=model)
 
-    # 4. Perform Vector Nearest-Neighbor Search (FAISS or dot product fallback)
+    # 4. Perform Vector Nearest-Neighbor Search using normalized cosine matrix multiplication
     match_pairs: List[Tuple[int, int, float]] = []
-
-    try:
-        import faiss
-
-        dim = cand_vectors.shape[1]
-        faiss_index = faiss.IndexFlatIP(dim)
-        faiss_index.add(cand_vectors)
-
-        k = min(top_k, len(cand_vectors))
-        distances, indices = faiss_index.search(doc_vectors, k)
-
-        for d_idx in range(len(doc_windows)):
-            for rank in range(k):
-                sim = float(distances[d_idx, rank])
-                c_idx = int(indices[d_idx, rank])
-                if sim >= threshold and c_idx >= 0:
-                    match_pairs.append((d_idx, c_idx, sim))
-
-    except (ImportError, Exception) as e:
-        logger.info(f"FAISS vector search fallback to matrix multiplication: {e}")
-        # Cosine similarity matrix: (num_docs, num_cands)
-        sim_matrix = np.dot(doc_vectors, cand_vectors.T)
-        for d_idx in range(len(doc_windows)):
-            top_indices = np.argsort(sim_matrix[d_idx])[::-1][:top_k]
-            for c_idx in top_indices:
-                sim = float(sim_matrix[d_idx, c_idx])
-                if sim >= threshold:
-                    match_pairs.append((d_idx, int(c_idx), sim))
+    # Cosine similarity matrix: (num_doc_windows, num_cand_passages)
+    sim_matrix = np.dot(doc_vectors, cand_vectors.T)
+    k = min(top_k, len(candidate_passages))
+    for d_idx in range(len(doc_windows)):
+        top_indices = np.argsort(sim_matrix[d_idx])[::-1][:k]
+        for c_idx in top_indices:
+            sim = float(sim_matrix[d_idx, c_idx])
+            if sim >= threshold:
+                match_pairs.append((d_idx, int(c_idx), sim))
 
     # 5. Formulate MatchSpans
     semantic_spans: List[MatchSpan] = []

@@ -1,0 +1,30 @@
+{
+  "version": "1.1-calibrated",
+  "description": "Calibrated on starter.csv with 30 samples",
+  "thresholds": {
+    "human_max": 35.0,
+    "uncertain_max": 65.0
+  },
+  "full": {
+    "intercept": -3.8090100288391113,
+    "coefficients": {
+      "perplexity": -0.0019120190991088748,
+      "burstiness": 0.0,
+      "mean_log_rank": -0.006334349978715181,
+      "sentence_length_variance": 0.0,
+      "discourse_marker_density": 1.2562534809112549,
+      "repeated_ngram_rate": 0.0,
+      "type_token_ratio": 0.005822508130222559
+    }
+  },
+  "stylometry_only": {
+    "intercept": -4.332311153411865,
+    "coefficients": {
+      "sentence_length_variance": 0.0,
+      "discourse_marker_density": 1.2687506675720215,
+      "repeated_ngram_rate": 0.0,
+      "type_token_ratio": 0.0076135811395943165,
+      "paragraph_length_variance": 0.0
+    }
+  }
+}

@@ -1,0 +1,12 @@
+streamlit
+python-docx
+pdfplumber
+pylatexenc
+scikit-learn
+sentence-transformers
+transformers
+torch
+nltk
+requests
+fpdf2
+pytest

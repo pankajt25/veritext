@@ -1,0 +1,18 @@
+Adversarial Robustness in Automated Plagiarism Detection
+
+Abstract
+The rapid proliferation of generative artificial intelligence and neural text paraphrasing poses unprecedented challenges to academic integrity. Traditional n-gram matching mechanisms struggle against latent semantic perturbations. In this paper, we explore feature-based lexical dispersion patterns alongside neural sentence embeddings to evaluate textual provenance.
+
+Introduction
+Academic plagiarism has evolved beyond direct cut-and-paste duplication into sophisticated restructuring. As noted by educational theorists, "The authenticity of scholarly discourse relies upon transparent attribution and rigorous intellectual lineage." Modern paraphrasing engines can obscure lexical signatures while preserving underlying conceptual structures.
+
+Methodology
+We evaluate stylistic variance across multiple document corpora using sliding sentence windows. Sentence boundaries are preserved to compute local lexical diversity. Furthermore, structural formatting anomalies and invisible characters are inspected to detect adversarial obfuscation techniques.
+
+Results and Discussion
+Our preliminary evaluations indicate that semantic embeddings significantly outperform surface-level sequence alignment when detecting paraphrased arguments. However, short quotations and common technical terminology require deliberate exclusion to minimize false-positive rates.
+
+References
+1. Vaswani, A., et al. (2017). Attention is All You Need. Advances in Neural Information Processing Systems, 30.
+2. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. NAACL-HLT.
+3. Salton, G., & McGill, M. J. (1983). Introduction to Modern Information Retrieval. McGraw-Hill.

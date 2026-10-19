@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veritext"
+version = "0.1.0"
+description = "Free, open-source plagiarism, AI-written-text and integrity checker with a report generator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "pankajt25"}
+]
+dependencies = [
+    "streamlit",
+    "python-docx",
+    "pdfplumber",
+    "pylatexenc",
+    "scikit-learn",
+    "sentence-transformers",
+    "transformers",
+    "torch",
+    "nltk",
+    "requests",
+    "fpdf2",
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

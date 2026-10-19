@@ -1,0 +1,10 @@
+Principles of Modern Transformer Architectures
+
+Abstract
+The transformer architecture relies upon multi-head self-attention mechanisms to dispense with recurrence and convolutions entirely. Self-attention relates different positions of a single sequence in order to compute a representation of the sequence.
+
+Architecture Design
+In natural language processing and computer vision, feed-forward neural networks and residual connections enable stable gradient backpropagation across deep layers. Layer normalization is applied after each sub-layer to stabilize the internal hidden state distributions. Furthermore, positional encodings are injected at the bottoms of the encoder and decoder stacks to provide information about the relative or absolute position of tokens in the sequence.
+
+Empirical Observations
+Our experiments demonstrate that self-attention layers calculate representations substantially faster than recurrent neural network layers when sequence lengths are shorter than representation dimensionalities. The resulting representations capture both syntactic dependencies and long-range semantic interactions across extensive document contexts.

@@ -55,7 +55,7 @@ def load_docx(path: Union[str, Path]) -> str:
 
 
 def load_pdf(path: Union[str, Path]) -> str:
-    """Loads plain text from a PDF (.pdf) file using pdfplumber."""
+    """Loads plain text from a PDF (.pdf) file using pdfplumber, falling back to OCR if text is empty."""
     path = Path(path)
     import pdfplumber
 
@@ -66,7 +66,19 @@ def load_pdf(path: Union[str, Path]) -> str:
             if text and text.strip():
                 page_texts.append(text.strip())
 
-    return "\n\n".join(page_texts)
+    extracted = "\n\n".join(page_texts).strip()
+    if not extracted:
+        # Fallback to OCR for scanned PDF
+        from veritext.ingest.ocr import ocr_scanned_pdf
+        extracted = ocr_scanned_pdf(path)
+
+    return extracted
+
+
+def load_image(path: Union[str, Path]) -> str:
+    """Loads text from an image file (.png, .jpg, .jpeg) using OCR."""
+    from veritext.ingest.ocr import ocr_image
+    return ocr_image(path)
 
 
 LOADER_MAP = {
@@ -77,6 +89,9 @@ LOADER_MAP = {
     ".latex": load_tex,
     ".docx": load_docx,
     ".pdf": load_pdf,
+    ".png": load_image,
+    ".jpg": load_image,
+    ".jpeg": load_image,
 }
 
 

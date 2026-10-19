@@ -58,9 +58,15 @@ def load_document(path: Union[str, Path]) -> Document:
         cleaned_text, clean_removed = clean_text(raw_text)
         removed_sections.extend(clean_removed)
 
+    elif ext in (".png", ".jpg", ".jpeg"):
+        from veritext.ingest.loaders import load_image
+        raw_text = load_image(file_path)
+        cleaned_text, clean_removed = clean_text(raw_text)
+        removed_sections.extend(clean_removed)
+
     else:
         raise ValueError(
-            f"Unsupported file type '{ext}'. Supported types: .docx, .pdf, .tex, .txt, .md"
+            f"Unsupported file type '{ext}'. Supported types: .docx, .pdf, .tex, .txt, .md, .png, .jpg, .jpeg"
         )
 
     # 2. Split paragraphs and sentences on clean_text

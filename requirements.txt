@@ -10,3 +10,7 @@ nltk
 requests
 fpdf2
 pytest
+faiss-cpu
+# Optional OCR fallback for scanned PDFs and image inputs
+rapidocr-onnxruntime
+pypdfium2

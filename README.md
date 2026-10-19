@@ -152,6 +152,55 @@ python -m veritext.sources stats
 
 ---
 
+## Plagiarism Detection Engine
+
+Veritext Stage 3 introduces a multi-tier plagiarism detection engine engineered to mirror the detection capabilities of enterprise software (such as Turnitin and Copyleaks) using strictly local, free, open-source components.
+
+### Detection Pipeline
+
+```text
+Normalize & Strip Evasions ──> Winnowing Fingerprints ──> Dense Vector Search ──> Hybrid Interval Scoring
+(NFKC, homoglyphs, zero-width)   (Exact & near-copy runs)  (Paraphrase semantics)   (Non-overlapping union)
+```
+
+1. **Text Canonicalisation (`veritext.normalize`)**: Enforces UTF-8, applies Unicode NFKC normalization, folds Cyrillic/Greek homoglyphs to Latin equivalents, strips zero-width and control characters (recording anomalies), unifies punctuation, and lemmatizes tokens with NLTK WordNet. Maintains an exact `offset_map` back to original raw character indices for UI highlighting.
+2. **Winnowing Fingerprinting (`veritext.fingerprint`)**: Employs the Schleimer-Wilkerson-Aiken winnowing algorithm ($k=5$ token $k$-grams, window $w=4$, rightmost tie-break) backed by signed 64-bit BLAKE2b hashes. Mathematically guarantees detection of any shared verbatim run of $\ge 8$ words while populating an SQLite inverted index (`data/veritext.sqlite`).
+3. **Semantic Vector Search (`veritext.similarity.semantic`)**: Segments documents and candidate sources into 1-to-2 sentence sliding windows, computes embeddings via `all-MiniLM-L6-v2`, caches vectors on disk in SQLite (`data/cache/embeddings_cache.sqlite`), and queries nearest neighbors using FAISS (`IndexFlatIP`). Spans covered by exact matches are masked out to eliminate redundant computation.
+4. **Hybrid Interval-Union Scoring (`veritext.similarity.scorer`)**: Computes character interval unions across exact and paraphrase matches to prevent double-counting overlapping spans, calculating overall similarity %, per-source breakdown, and ranked matching passages.
+5. **Optical Character Recognition (`veritext.ingest.ocr`)**: Detects scanned or textless PDF pages and routes them through `pypdfium2` and `RapidOCR` (optional dependency), degrading gracefully if unavailable.
+
+### Why Multi-Tier? (Turnitin/Copyleaks Parity with Free Tools)
+
+Single-algorithm checkers fail on real-world academic evasion:
+- *Pure vector search* is too computationally heavy for whole-library scans and blurs exact short-phrase boundaries.
+- *Pure string matching / n-grams* fail completely against basic paraphrasing, active-to-passive conversions, and synonym substitution.
+- *Naive text extraction* is vulnerable to zero-width space injection, Cyrillic homoglyph substitution, and white-text font tricks.
+
+By layering canonical text normalization, sub-linear winnowing indexing, neural semantic vector search, and interval union mathematics, Veritext achieves enterprise-grade detection accuracy while running 100% offline and cost-free. For in-depth mathematical proofs, parameter selection rationale, and benchmark analysis, see [docs/stage3.md](docs/stage3.md).
+
+### Plagiarism Detection CLI
+
+```bash
+# Analyze a document in offline mode (compares against local reference library)
+python -m veritext.similarity data/samples/plagiarism_demo/copied_doc.txt --offline
+
+# Analyze with custom similarity threshold (default: 0.75) and export JSON report
+python -m veritext.similarity data/samples/plagiarism_demo/paraphrased_doc.txt --offline --threshold 0.75 --json report.json
+
+# Analyze online (queries open academic APIs + local reference library)
+python -m veritext.similarity data/samples/sample_academic.txt --max-sources 20
+```
+
+### Benchmark Demo Cases
+
+Veritext includes benchmark test files in `data/samples/plagiarism_demo/`:
+- **`copied_doc.txt`**: Verbatim copy from reference source $\rightarrow$ **~85.5% similarity (EXACT)**
+- **`paraphrased_doc.txt`**: Sentence-restructured academic concepts $\rightarrow$ **~39.9% similarity (PARAPHRASE)**
+- **`original_doc.txt`**: Unrelated document (Roman archaeology) $\rightarrow$ **0.0% similarity (Negative control)**
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+

@@ -1,0 +1,7 @@
+A Survey on Deep Sequential Representations
+
+Introduction
+The transformer architecture relies upon multi-head self-attention mechanisms to dispense with recurrence and convolutions entirely. Self-attention relates different positions of a single sequence in order to compute a representation of the sequence.
+
+Discussion of Components
+In natural language processing and computer vision, feed-forward neural networks and residual connections enable stable gradient backpropagation across deep layers. Layer normalization is applied after each sub-layer to stabilize the internal hidden state distributions. Furthermore, positional encodings are injected at the bottoms of the encoder and decoder stacks to provide information about the relative or absolute position of tokens in the sequence.

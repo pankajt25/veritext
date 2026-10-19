@@ -1,0 +1,24 @@
+{
+  "total": 1,
+  "offset": 0,
+  "data": [
+    {
+      "paperId": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "url": "https://www.semanticscholar.org/paper/a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "title": "A Survey on Automated Text Plagiarism and Authorship Attribution",
+      "abstract": "We synthesize recent literature on lexical overlap, n-gram matching, and contextualized embeddings for authorship verification.",
+      "venue": "ACM Computing Surveys",
+      "year": 2022,
+      "authors": [
+        {
+          "authorId": "123456",
+          "name": "Sarah Connor"
+        },
+        {
+          "authorId": "654321",
+          "name": "John Doe"
+        }
+      ]
+    }
+  ]
+}

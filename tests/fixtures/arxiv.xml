@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <link href="http://arxiv.org/api/query?search_query=all:transformer" rel="self" type="application/atom+xml"/>
+  <title type="html">ArXiv Query: search_query=all:transformer</title>
+  <id>http://arxiv.org/api/12345</id>
+  <updated>2026-10-19T00:00:00-04:00</updated>
+  <entry>
+    <id>http://arxiv.org/abs/2103.00020v1</id>
+    <updated>2021-03-01T12:00:00Z</updated>
+    <published>2021-03-01T12:00:00Z</published>
+    <title>Learning Transferable Visual Models From Natural Language Supervision</title>
+    <summary>State-of-the-art computer vision systems are trained to predict a fixed set of predetermined object categories. This restricted form of supervision limits their generality.</summary>
+    <author>
+      <name>Alec Radford</name>
+    </author>
+    <author>
+      <name>Jong Wook Kim</name>
+    </author>
+    <link href="http://arxiv.org/abs/2103.00020v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2103.00020v1" rel="related" type="application/pdf"/>
+  </entry>
+</feed>

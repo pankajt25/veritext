@@ -1,0 +1,25 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "total-results": 1,
+    "items": [
+      {
+        "indexed": {"date-parts": [[2024, 1, 15]]},
+        "reference-count": 42,
+        "publisher": "Association for Computing Machinery",
+        "DOI": "10.1145/3372297.3417876",
+        "type": "proceedings-article",
+        "created": {"date-parts": [[2020, 10, 1]]},
+        "title": ["Adversarial Robustness in Deep Neural Text Representations"],
+        "author": [
+          {"given": "Alex", "family": "Johnson", "sequence": "first"},
+          {"given": "Maria", "family": "Garcia", "sequence": "additional"}
+        ],
+        "published-print": {"date-parts": [[2020, 10, 15]]},
+        "URL": "https://doi.org/10.1145/3372297.3417876",
+        "abstract": "<jats:p>We explore adversarial susceptibility in deep textual embedding architectures and propose defensive token masking.</jats:p>"
+      }
+    ]
+  }
+}

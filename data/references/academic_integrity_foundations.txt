@@ -1,0 +1,21 @@
+Foundations of Academic Integrity and Textual Attribution
+Author: Veritext Open Research Group
+
+Abstract
+Scholarly communication relies upon rigorous attribution standards to delineate original creative contributions from existing knowledge foundations. This reference overview examines textual overlap taxonomies, paraphrasing nuances, and ethical citation practices.
+
+Taxonomy of Textual Overlap
+In academic literature, textual overlap spans a broad continuum:
+1. Verbatim Copying: Direct reproduction of phrases or paragraphs without quotation marks or attribution.
+2. Concealed Paraphrasing: Substituting synonyms while preserving the syntactic cadence and narrative structure of the original author.
+3. Mosaic Plagiarism: Patchwriting combinations of multiple source texts into a composite narrative without transparent attribution.
+4. Structural Duplication: Mirroring the argumentative outline, mathematical progression, or experimental framework of an existing study.
+
+Attribution Protocols
+Proper scholarly attribution requires:
+- Clear typographic demarcation of direct quotations via quotation marks or indented blockquotes.
+- Unambiguous bibliographic citations denoting the author, publication year, title, and container venue.
+- Explicit acknowledgment when adopting technical formulations, unique conceptual frameworks, or unpublished datasets.
+
+Technological Detection Frameworks
+Modern computational verification involves lexical sequence matching, token dispersion modeling, semantic embedding comparison, and stylistic burstiness evaluation. Automated systems serve as diagnostic aids rather than infallible arbiters, requiring human judgment to evaluate pedagogical context.

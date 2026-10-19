@@ -1,0 +1,21 @@
+Computing Machinery and Intelligence (1950)
+Author: Alan M. Turing
+
+Abstract
+This paper considers the question: Can machines think? Because the terms thought and machine are difficult to define unambiguously, we replace the question with a game called the imitation game. In this game, an interrogator poses questions to a hidden human and a hidden computer, attempting to distinguish which respondent is the machine.
+
+The Imitation Game
+The new form of the problem can be described in terms of a game which we call the 'imitation game'. It is played with three people, a man, a woman, and an interrogator who may be of either sex. The interrogator stays in a room apart from the other two. The object of the game for the interrogator is to determine which of the other two is the man and which is the woman.
+
+Digital Computers and Universality
+Digital computers are designed to carry out any operations which could be done by a human computer following fixed rules. A digital computer can usually be regarded as consisting of three parts: store, executive unit, and control. The property of universal digital computers implies that any discrete-state machine can be simulated by a universal computer with adequate capacity and speed.
+
+Objections to Machine Intelligence
+We consider several counterarguments against the possibility of thinking machines:
+1. The Theological Objection: Thinking is a function of man's immortal soul.
+2. The Mathematical Objection: Results like Gödel's incompleteness theorems indicate limitations on discrete-state systems.
+3. The Argument from Consciousness: Not until a machine can write a sonnet or compose a concerto because of thoughts and emotions felt could we agree that machine equals brain.
+4. Lady Lovelace's Objection: The Analytical Engine has no pretensions to originate anything; it can only do whatever we know how to order it to perform.
+
+Learning Machines
+Instead of trying to produce a programme to simulate the adult mind, why not rather try to produce one which simulates the child's? If this were then subjected to an appropriate course of education one would obtain the adult brain.

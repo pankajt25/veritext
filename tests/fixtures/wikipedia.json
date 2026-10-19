@@ -1,0 +1,27 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "searchinfo": {
+      "totalhits": 1
+    },
+    "search": [
+      {
+        "ns": 0,
+        "title": "Plagiarism",
+        "pageid": 23517,
+        "size": 45120,
+        "wordcount": 5200,
+        "snippet": "<b>Plagiarism</b> is the representation of another author&#39;s language, thoughts, ideas, or expressions as one&#39;s own original work.",
+        "timestamp": "2026-10-01T12:00:00Z"
+      }
+    ],
+    "pages": {
+      "23517": {
+        "pageid": 23517,
+        "ns": 0,
+        "title": "Plagiarism",
+        "extract": "Plagiarism is the representation of another author's language, thoughts, ideas, or expressions as one's own original work. In academic contexts, plagiarism violates institutional honor codes."
+      }
+    }
+  }
+}

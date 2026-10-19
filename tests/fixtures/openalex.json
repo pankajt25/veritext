@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "count": 1,
+    "page": 1,
+    "per_page": 5
+  },
+  "results": [
+    {
+      "id": "https://openalex.org/W3125678901",
+      "doi": "https://doi.org/10.1007/978-3-030-58951-6_12",
+      "title": "Neural Paraphrase Identification and Authorship Verification",
+      "display_name": "Neural Paraphrase Identification and Authorship Verification",
+      "publication_year": 2021,
+      "cited_by_count": 89,
+      "authorships": [
+        {
+          "author_position": "first",
+          "author": {
+            "id": "https://openalex.org/A5001234567",
+            "display_name": "Elena Rostova"
+          }
+        },
+        {
+          "author_position": "middle",
+          "author": {
+            "id": "https://openalex.org/A5007654321",
+            "display_name": "Kenji Sato"
+          }
+        }
+      ],
+      "abstract_inverted_index": {
+        "We": [0],
+        "evaluate": [1],
+        "stylistic": [2],
+        "variance": [3],
+        "in": [4],
+        "neural": [5],
+        "paraphrasing": [6],
+        "models": [7],
+        "to": [8],
+        "detect": [9],
+        "unauthorized": [10],
+        "textual": [11],
+        "overlap.": [12]
+      }
+    }
+  ]
+}

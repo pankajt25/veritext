@@ -22,6 +22,9 @@ dist/
 # Data cache and temp files
 .cache/
 data/cache/
+data/veritext.sqlite
+data/*.sqlite
+data/*.db
 *.tmp
 
 # Environment variables

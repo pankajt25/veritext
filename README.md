@@ -21,18 +21,22 @@ veritext/
 │   └── workflows/
 │       └── tests.yml             # GitHub Actions CI workflow
 ├── data/
+│   ├── cache/                    # SQLite HTTP response cache (gitignored)
+│   ├── references/               # Local reference library documents
 │   └── samples/                  # Sample academic documents (.docx, .pdf, .tex, .txt, .md)
 ├── docs/                         # Project documentation and stage plans
 ├── src/
 │   └── veritext/
 │       ├── __init__.py           # Package root
 │       ├── ingest/               # Document loaders, cleaners, and splitters
+│       ├── sources/              # Free source search, clients, and local FTS5 store
 │       ├── similarity/           # Similarity and plagiarism detection
 │       ├── ai_detect/            # AI-generated text detection
 │       ├── checks/               # Integrity and adversarial checks
 │       ├── report/               # Report and PDF generation
 │       └── ui/                   # Streamlit interface
 ├── tests/                        # Automated unit and integration test suite
+│   └── fixtures/                 # Mock API response fixtures
 ├── .gitignore
 ├── LICENSE                       # MIT License
 ├── README.md
@@ -102,6 +106,48 @@ Run the test suite using `pytest`:
 
 ```bash
 pytest
+```
+
+---
+
+## Sources & Reference Library
+
+Veritext Stage 2 integrates candidate source search from five open knowledge sources alongside an offline-first local reference database:
+
+### Free Public APIs Used
+
+1. **Crossref** (`api.crossref.org`): Searches bibliographic records, DOIs, and abstracts across >140M academic works.
+2. **OpenAlex** (`api.openalex.org`): Open scholarly index with automated abstract reconstruction from inverted indices.
+3. **arXiv** (`export.arxiv.org`): High-energy physics, computer science, and mathematics preprints parsed via Atom XML.
+4. **Semantic Scholar** (`api.semanticscholar.org`): Academic search graph by the Allen Institute for AI, configured with graceful fallback upon HTTP 429 rate limiting.
+5. **Wikipedia** (`en.wikipedia.org`): Encyclopedic definitions, background overviews, and introductory extracts.
+
+### Coverage Comparison: Open vs. Commercial Tools
+
+Commercial checkers (such as Turnitin, Copyleaks, or iThenticate) rely on:
+- Proprietary global web crawlers archiving billions of active and historical web pages.
+- Closed, contractual institutional agreements with paywalled academic publishers (e.g., Elsevier, Springer Nature, Wiley, IEEE).
+- Centralized repositories of millions of previously submitted student essays.
+
+In contrast, **Veritext is 100% free, open-source, and offline-capable**:
+- Operates with **zero paid APIs, zero API keys, and zero account requirements**.
+- Respects rate limits, applies exponential backoff, and caches all HTTP responses in a local SQLite database (`data/cache/http_cache.sqlite`) for 7 days.
+- Paywalled publications and non-open repositories cannot be queried via public endpoints. However, users can achieve thorough coverage by adding past assignments, textbooks, and course readings directly to the **local reference library** (`data/references/`), which indexes documents using fast SQLite FTS5 full-text search.
+
+### Reference Library CLI
+
+```bash
+# Add a file or entire folder to the local reference library
+python -m veritext.sources add data/references/
+
+# Search candidate sources for a document in offline mode (local library only)
+python -m veritext.sources search data/samples/sample_academic.txt --offline --max 5
+
+# Search candidate sources online (queries Crossref, OpenAlex, arXiv, Semantic Scholar, Wikipedia + Local Library)
+python -m veritext.sources search data/samples/sample_academic.txt --max 10
+
+# View statistics for indexed references and HTTP cache
+python -m veritext.sources stats
 ```
 
 ---

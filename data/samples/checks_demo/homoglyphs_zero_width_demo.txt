@@ -1,0 +1,7 @@
+Modern computational linguistics investigates how neural models process written language.
+
+The automated systеm evaluates documents for linguistic consistency and acadеmiс integrity. In this papеr, we demonstrate several adversarial evasion techniques.
+
+Adversaries frequently insert invisible characters such as zero​width​space and word⁠joiner formatting marks to break continuous token sequences.
+
+Additionally, soft­hyphens are embedded to confuse downstream tokenizers while remaining virtually unnoticeable to human readers.

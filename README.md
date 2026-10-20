@@ -251,6 +251,49 @@ Veritext includes benchmark samples in `data/samples/ai_demo/`:
 
 ---
 
+## Document Integrity & Adversarial Checks (Stage 5)
+
+Veritext Stage 5 introduces an integrity and verification suite designed to flag adversarial formatting, citation anomalies, self-plagiarism, and source code similarity for programming assignments.
+
+### Checks Modules
+
+1. **Hidden Content & Obfuscation (`veritext.checks.hidden`)**:
+   - **Text-level Evasion**: Detects Cyrillic and Greek homoglyphs substituted into Latin words (mixed-script words), zero-width characters (`\u200b`, `\u200c`, `\ufeff`), soft hyphens (`\u00ad`), and bidirectional control characters.
+   - **DOCX Formatting**: Inspects Word documents with `python-docx` for runs formatted with white or near-white font colours (`RGB(255,255,255)`), microscopic fonts (< 2.0 pt), and XML vanish properties.
+   - **PDF Formatting**: Inspects PDF documents with `pdfplumber` for white/near-white fill colours and microscopic font sizes (< 2.0 pt).
+2. **Citations & Quotes Integrity (`veritext.checks.citations`)**:
+   - **In-Text Citations**: Detects numeric (`[1]`, `[1-3]`) and author-year (`(Smith, 2020)`, `Smith et al. (2020)`) styles.
+   - **Bibliography Cross-Verification**: Identifies citations pointing to missing bibliography entries, uncited bibliography references, duplicate references, and mixed citation styles.
+   - **Likely Uncited Claims**: Flags sentences making factual assertions, percentages, or research trigger phrases ("studies show", "research has shown", "according to") without an in-text citation in the sentence or the following sentence (warning level only, with false-positive suppression).
+   - **Quotation Verification**: Flags long quotes (> 25 words) without nearby citations, and checks verbatim Stage 3 similarity matches lacking quotation marks or citations.
+3. **Self-Plagiarism & Past Submissions (`veritext.checks.selfcheck`)**:
+   - Indexes student earlier work under `data/my_previous/` (origin `"self"`).
+   - Compares new submissions against indexed past work using exact winnowing fingerprints in SQLite and reports overlap percentage and exact matched spans.
+4. **Source Code Similarity (`veritext.checks.code_similarity`)**:
+   - Analyzes programming assignments in Python (`.py`), Java (`.java`), C/C++ (`.c`, `.cpp`), and JavaScript (`.js`).
+   - Normalizes code by stripping comments and whitespace, replacing variable/function identifiers with placeholder `ID`, replacing string and number literals with placeholders, and preserving language keywords and operators.
+   - Computes winnowing fingerprints ($k=7, w=4$) and supports an optional boilerplate template file (`--template`) to ignore instructor starter code.
+
+### Integrity Checks CLI
+
+```bash
+# Run all integrity checks on a document (.docx, .pdf, .txt, .md)
+python -m veritext.checks data/samples/checks_demo/hidden_content_demo.docx
+python -m veritext.checks data/samples/checks_demo/citations_mismatch_demo.txt --json report.json
+
+# Register previous work for self-plagiarism checking
+python -m veritext.checks add-previous data/my_previous/
+python -m veritext.checks data/samples/checks_demo/self_plag_new.txt
+
+# Run pairwise source code similarity on a folder
+python -m veritext.checks code data/samples/checks_demo/code_demo/
+
+# Run code similarity with boilerplate template exclusion
+python -m veritext.checks code data/samples/checks_demo/code_demo/ --template data/samples/checks_demo/code_demo/boilerplate_template.py
+```
+
+---
+
 ## Limitations and Responsible Use
 
 > [!WARNING]

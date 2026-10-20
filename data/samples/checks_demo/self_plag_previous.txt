@@ -1,0 +1,5 @@
+Thesis Chapter 2: Historical Evolution of Sequence Modeling
+
+Recurrent neural networks and long short-term memory units were historically developed to address the vanishing gradient problem encountered during the backpropagation through time algorithm. By incorporating input gates, forget gates, and candidate cell state updates, these architectures preserved contextual dependencies across sequential information streams.
+
+Subsequent developments replaced recurrent cells with multi-head self-attention mechanisms, enabling parallelized computation across entire sequences simultaneously.

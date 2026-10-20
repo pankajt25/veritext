@@ -1,0 +1,7 @@
+Assignment 3: Deep Learning Architectures in Natural Language Processing
+
+In this assignment, we examine foundational sequential modeling approaches.
+
+Recurrent neural networks and long short-term memory units were historically developed to address the vanishing gradient problem encountered during the backpropagation through time algorithm. By incorporating input gates, forget gates, and candidate cell state updates, these architectures preserved contextual dependencies across sequential information streams.
+
+In our practical experiments, we compare this sequential architecture against modern transformer baselines on classification accuracy.

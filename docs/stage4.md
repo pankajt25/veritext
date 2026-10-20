@@ -67,6 +67,11 @@ Overall AI Probability & Band                         Sentence-Level Offsets & L
   $$\text{Burstiness} = \sigma(PPL_{\text{sentence}})$$
   Standard deviation of sentence-level perplexity scores. Human text demonstrates spiky predictability, whereas AI text remains flat.
 
+### 3. Calibrated Sentence Scoring & Offset Tracking (`veritext.ai_detect.ensemble.score_sentence`)
+- **Stage 1 Sentence Splitter Integration**: Individual sentences are cleanly bounded within paragraph blocks, guaranteeing character offsets `doc_start:doc_end` match the exact sentence slice (`clean_text[start:end] == sentence.text`). Standalone titles and section headings are recognized, flagged (`is_heading=True`), and excluded from sentence-level AI scoring.
+- **Consistent Scaling**: Sentence AI probabilities (0.0 to 1.0) are calibrated on the exact same scale and decision thresholds (`human_max: 35.0%`, `uncertain_max: 65.0%`) as the document ensemble. Sentences blend the document-level base logit with sentence-specific stylometric markers (discourse transitions, length cadence) and relative language model perplexity.
+- **Top 5 Ranking**: CLI displays the top 5 sentences in descending order of AI score, showing their label, score, exact character offsets, and full sentence text.
+
 ---
 
 ## Calibration Method (`veritext.ai_detect.calibrate`)

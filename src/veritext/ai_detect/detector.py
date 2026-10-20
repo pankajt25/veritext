@@ -10,6 +10,7 @@ from veritext.ai_detect.ensemble import (
     determine_confidence_band,
     label_sentence,
     load_weights_config,
+    score_sentence,
 )
 from veritext.ai_detect.features_lm import (
     compute_lm_features,
@@ -20,6 +21,7 @@ from veritext.ai_detect.models import AIResult, SentenceAIResult
 from veritext.ai_detect.roberta import classify_roberta, is_roberta_available
 from veritext.ingest.models import Document, Sentence
 from veritext.ingest.pipeline import load_document
+from veritext.ingest.splitter import is_heading_text
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +102,27 @@ def detect_ai(
         progress_callback("Extracting stylometric features...")
 
     # 4. Stylometric Features (always available, no neural model needed)
-    sent_texts = [s.text for s in doc.sentences if s.text.strip()]
+    valid_sentences = [
+        s for s in doc.sentences
+        if s.text.strip()
+        and not getattr(s, "is_heading", False)
+        and not is_heading_text(s.text)
+        and len(s.text.split()) >= 4
+    ]
+    if not valid_sentences:
+        valid_sentences = [
+            s for s in doc.sentences
+            if s.text.strip() and not getattr(s, "is_heading", False) and not is_heading_text(s.text)
+        ]
+    if not valid_sentences:
+        valid_sentences = [s for s in doc.sentences if s.text.strip()]
+
+    scored_sent_texts = [s.text for s in valid_sentences]
     para_texts = [p.text for p in doc.paragraphs if p.text.strip()]
 
     style_features = compute_stylometric_features(
         text=analysis_text,
-        sentences=sent_texts,
+        sentences=scored_sent_texts,
         paragraphs=para_texts,
     )
 
@@ -120,7 +137,7 @@ def detect_ai(
         try:
             lm_features = compute_lm_features(
                 text=analysis_text,
-                sentences=sent_texts,
+                sentences=scored_sent_texts,
             )
             sentence_perplexities = lm_features.get("sentence_perplexities", [])
         except Exception as e:
@@ -169,26 +186,21 @@ def detect_ai(
     # 8. Per-Sentence Classification with Document Offsets
     sentence_results: List[SentenceAIResult] = []
     th = weights_config.get("thresholds", {"human_max": 35.0, "uncertain_max": 65.0})
+    mean_ppl = (
+        sum(sentence_perplexities) / len(sentence_perplexities)
+        if sentence_perplexities
+        else None
+    )
 
-    for idx, s in enumerate(doc.sentences):
-        s_words = len(s.text.split())
-        if s_words < 4:
-            continue
-
-        # Estimate sentence AI score from perplexity and local stylometry
-        if idx < len(sentence_perplexities):
-            s_ppl = sentence_perplexities[idx]
-            # Lower perplexity correlates with higher AI likelihood
-            s_score = 1.0 / (1.0 + math.exp((s_ppl - 30.0) / 15.0))
-            s_expl = f"Perplexity: {s_ppl:.1f}"
-        else:
-            s_ppl = None
-            # Fallback based on sentence length and discourse markers
-            has_marker = any(m in s.text.lower() for m in ["however", "furthermore", "moreover", "in conclusion"])
-            s_score = 0.60 if has_marker else (overall_prob / 100.0)
-            s_expl = "Stylometric transition marker" if has_marker else "Document baseline"
-
-        s_label = label_sentence(s_score, thresholds=th)
+    for idx, s in enumerate(valid_sentences):
+        s_ppl = sentence_perplexities[idx] if idx < len(sentence_perplexities) else None
+        s_score, s_label, s_expl = score_sentence(
+            sentence_text=s.text,
+            overall_probability=overall_prob,
+            sentence_perplexity=s_ppl,
+            mean_perplexity=mean_ppl,
+            thresholds=th,
+        )
 
         sentence_results.append(
             SentenceAIResult(

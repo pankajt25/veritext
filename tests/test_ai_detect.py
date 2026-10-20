@@ -12,6 +12,7 @@ from veritext.ai_detect.ensemble import (
     determine_confidence_band,
     label_sentence,
     load_weights_config,
+    score_sentence,
 )
 from veritext.ai_detect.features_lm import compute_lm_features
 from veritext.ai_detect.features_style import (
@@ -244,6 +245,121 @@ def test_calibration_script_produces_metrics(tmp_path):
     saved_data = json.loads(out_weights.read_text(encoding="utf-8"))
     assert "stylometry_only" in saved_data
     assert "intercept" in saved_data["stylometry_only"]
+
+
+def test_ai_sentences_descending_sort_order():
+    """Verifies that detected AI sentences are sorted strictly descending by score."""
+    sample_text = (
+        "Document Title On Innovation\n\n"
+        "In the aftermath of technological acceleration, distributed teams have altered workflows. "
+        "Modern systems facilitate virtual coordination across boundaries with reduced latency. "
+        "Furthermore, automated frameworks offer unprecedented flexibility for workforce planning. "
+        "Consequently, forward-thinking enterprises report elevated workforce satisfaction levels. "
+        "Additionally, asynchronous messaging enables collaboration without temporal bottlenecks. "
+        "In conclusion, modern operating dynamics require intentional human leadership strategies."
+    )
+    padded = sample_text + " " + " ".join(["operational context analysis"] * 50)
+
+    with patch("veritext.ai_detect.detector.is_distilgpt2_available", return_value=True), \
+         patch("veritext.ai_detect.detector.compute_lm_features") as mock_lm:
+        mock_lm.return_value = {
+            "perplexity": 35.0,
+            "mean_log_rank": 3.0,
+            "burstiness": 15.0,
+            "sentence_perplexities": [120.0, 95.0, 45.0, 40.0, 38.0, 50.0],
+        }
+        res = detect_ai(padded)
+
+    assert res.status == "success"
+    assert len(res.sentences) >= 5
+    for i in range(len(res.sentences) - 1):
+        assert res.sentences[i].score >= res.sentences[i + 1].score, (
+            f"Sentence {i} ({res.sentences[i].score}) should be >= Sentence {i+1} ({res.sentences[i+1].score})"
+        )
+
+
+def test_ai_sentences_exact_offsets_and_headings_skipped():
+    """Verifies exact offset slicing text[start:end] == sentence and headings are not scored."""
+    heading = "The Architecture of Neural Optimization"
+    s1 = "Deep neural networks optimize parameters using stochastic gradient descent."
+    s2 = "Furthermore, backpropagation calculates exact gradients across composite layers."
+    s3 = "Consequently, empirical loss curves exhibit smooth convergence characteristics."
+    s4 = "In conclusion, modern architectures achieve state-of-the-art benchmark results."
+    s5 = "However, researchers must continue investigating interpretability mechanisms."
+
+    full_text = f"{heading}\n\n{s1} {s2}\n\n{s3} {s4} {s5}"
+    padded = full_text + " " + " ".join(["contextual empirical analysis"] * 60)
+
+    with patch("veritext.ai_detect.detector.is_distilgpt2_available", return_value=False):
+        res = detect_ai(padded)
+
+    assert res.status == "success"
+    scored_texts = [s.text for s in res.sentences]
+    assert heading not in scored_texts
+
+    for sent in res.sentences:
+        sliced = padded[sent.doc_start : sent.doc_end]
+        assert sliced == sent.text, f"Offset mismatch: expected '{sent.text}', got '{sliced}'"
+        assert "\n\n" not in sent.text, "Sentence should not bridge across paragraphs"
+
+
+def test_document_sentence_label_consistency():
+    """Verifies that high-AI documents produce top sentences that are not all 'likely human'."""
+    th = {"human_max": 35.0, "uncertain_max": 65.0}
+
+    s1_score, s1_label, _ = score_sentence(
+        "Furthermore, remote work frameworks offer employees unprecedented flexibility.",
+        overall_probability=78.2,
+        sentence_perplexity=85.0,
+        mean_perplexity=120.0,
+        thresholds=th,
+    )
+    s2_score, s2_label, _ = score_sentence(
+        "Modern telecommunications platforms facilitate seamless virtual interactions.",
+        overall_probability=78.2,
+        sentence_perplexity=130.0,
+        mean_perplexity=120.0,
+        thresholds=th,
+    )
+
+    assert s1_score >= 0.65, f"Expected AI score >= 0.65, got {s1_score}"
+    assert s1_label == "likely AI"
+    assert s2_label in ("uncertain", "likely AI")
+
+    h_score, h_label, _ = score_sentence(
+        "We initiated the reduction trial by dissolving 2.45 grams in ethanol.",
+        overall_probability=6.4,
+        sentence_perplexity=250.0,
+        mean_perplexity=180.0,
+        thresholds=th,
+    )
+    assert h_score < 0.35, f"Expected human score < 0.35, got {h_score}"
+    assert h_label == "likely human"
+
+
+def test_detect_ai_consistency_end_to_end_mocked():
+    """End-to-end check that detect_ai produces consistent labels with mocked AI outputs."""
+    sample_path = Path(__file__).resolve().parent.parent / "data" / "samples" / "ai_demo" / "ai_sample_1.txt"
+    from veritext.ingest.pipeline import load_document
+    doc = load_document(sample_path)
+
+    with patch("veritext.ai_detect.detector.is_distilgpt2_available", return_value=True), \
+         patch("veritext.ai_detect.detector.compute_lm_features") as mock_lm:
+        mock_lm.return_value = {
+            "perplexity": 20.0,
+            "mean_log_rank": 2.2,
+            "burstiness": 6.0,
+            "sentence_perplexities": [35.0, 32.0, 30.0, 33.0, 28.0, 31.0, 29.0, 34.0],
+        }
+        res = detect_ai(doc)
+
+    assert res.status == "success"
+    assert res.overall_probability >= 65.0, f"Overall prob {res.overall_probability} should be >= 65"
+    top_5 = res.sentences[:5]
+    labels = [s.label for s in top_5]
+    assert all(label in ("likely AI", "uncertain") for label in labels)
+    assert top_5[0].label == "likely AI"
+    assert top_5[0].score >= 0.65
 
 
 @pytest.mark.slow

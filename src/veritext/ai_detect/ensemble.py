@@ -5,6 +5,8 @@ import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from veritext.ai_detect.features_style import DISCOURSE_MARKERS
+
 DEFAULT_CONFIG_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent
     / "data"
@@ -185,3 +187,74 @@ def label_sentence(
     elif score * 100.0 <= u_max:
         return "uncertain"
     return "likely AI"
+
+
+def score_sentence(
+    sentence_text: str,
+    overall_probability: float,
+    sentence_perplexity: Optional[float] = None,
+    mean_perplexity: Optional[float] = None,
+    thresholds: Optional[Dict[str, float]] = None,
+) -> Tuple[float, str, str]:
+    """
+    Computes a calibrated AI probability score (0.0 to 1.0), classification label,
+    and explanation for an individual sentence. Calibrated on the exact same scale
+    as the document-level ensemble to maintain consistency between document-level
+    classifications and sentence-level rankings.
+    """
+    th = thresholds or DEFAULT_WEIGHTS["thresholds"]
+    h_max = th.get("human_max", 35.0)
+    u_max = th.get("uncertain_max", 65.0)
+
+    # Document base probability in (0.01, 0.99)
+    p_base = max(0.01, min(0.99, overall_probability / 100.0))
+    z = math.log(p_base / (1.0 - p_base))
+
+    # 1. Stylometric transition phrase adjustment
+    has_marker = any(m in sentence_text.lower() for m in DISCOURSE_MARKERS)
+    if has_marker:
+        z += 0.55
+    else:
+        z -= 0.10
+
+    # 2. Sentence length cadence adjustment
+    words = sentence_text.split()
+    w_count = len(words)
+    if 14 <= w_count <= 28:
+        z += 0.15
+    elif w_count > 38 or w_count < 8:
+        z -= 0.15
+
+    # 3. Relative perplexity adjustment (when distilgpt2 perplexity is available)
+    if sentence_perplexity is not None and sentence_perplexity > 0 and mean_perplexity and mean_perplexity > 0:
+        delta_loss = math.log(sentence_perplexity) - math.log(mean_perplexity)
+        # Clamped adjustment: lower perplexity than average increases AI probability
+        ppl_adj = -0.45 * max(-2.0, min(2.0, delta_loss))
+        z += ppl_adj
+
+        if has_marker:
+            explanation = f"Perplexity: {sentence_perplexity:.1f}, transition marker"
+        else:
+            explanation = f"Perplexity: {sentence_perplexity:.1f}"
+    else:
+        if has_marker:
+            explanation = "Stylometric transition marker"
+        else:
+            explanation = "Document baseline stylometry"
+
+    # Convert logit back to probability
+    raw_score = 1.0 / (1.0 + math.exp(-max(-15.0, min(15.0, z))))
+    score = round(raw_score, 4)
+
+    # Consistency guarantee:
+    # If the document is classified as "likely AI" (overall_probability >= u_max),
+    # ensure top AI hallmark sentences reflect this classification and are not labeled "likely human".
+    if overall_probability >= u_max:
+        min_ai_bound = u_max / 100.0
+        if has_marker and score < min_ai_bound:
+            score = round(min_ai_bound + 0.05, 4)
+        elif score < (h_max / 100.0):
+            score = round(h_max / 100.0 + 0.05, 4)
+
+    label = label_sentence(score, thresholds=th)
+    return score, label, explanation

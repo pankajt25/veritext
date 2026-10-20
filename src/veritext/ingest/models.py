@@ -10,6 +10,7 @@ class Sentence:
     text: str
     start: int
     end: int
+    is_heading: bool = False
 
     def __getitem__(self, index: int) -> Any:
         return (self.text, self.start, self.end)[index]
@@ -18,7 +19,12 @@ class Sentence:
         return iter((self.text, self.start, self.end))
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"text": self.text, "start": self.start, "end": self.end}
+        return {
+            "text": self.text,
+            "start": self.start,
+            "end": self.end,
+            "is_heading": self.is_heading,
+        }
 
 
 @dataclass

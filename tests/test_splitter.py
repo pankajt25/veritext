@@ -78,3 +78,27 @@ def test_multiline_paragraph_offsets():
     assert len(paragraphs) == 2
     for p in paragraphs:
         assert text[p.start:p.end] == p.text
+
+
+def test_heading_detection_and_offsets():
+    text = (
+        "The Evolution of Organizational Dynamics in the Era of Remote Collaboration\n\n"
+        "In the aftermath of recent global disruptions, distributed workplace arrangements have fundamentally redefined modern corporate operations. Modern telecommunications platforms facilitate seamless virtual interactions across geographically dispersed teams."
+    )
+    sentences = split_sentences(text)
+    assert len(sentences) == 3
+
+    for s in sentences:
+        assert text[s.start:s.end] == s.text
+
+    assert sentences[0].is_heading is True
+    assert sentences[0].text == "The Evolution of Organizational Dynamics in the Era of Remote Collaboration"
+    assert sentences[0].start == 0
+    assert sentences[0].end == 75
+
+    assert sentences[1].is_heading is False
+    assert sentences[1].text.startswith("In the aftermath")
+    assert sentences[1].start == 77
+
+    assert sentences[2].is_heading is False
+    assert sentences[2].text.startswith("Modern telecommunications")

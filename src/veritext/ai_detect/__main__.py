@@ -108,15 +108,12 @@ def handle_detect(args):
         print(f"  • {exp}")
 
     print("\nMost AI-Like Sentences:")
-    ai_sentences = [s for s in result.sentences if s.score >= 0.50]
-    display_sents = ai_sentences[:4] if ai_sentences else result.sentences[:3]
+    top_sentences = sorted(result.sentences, key=lambda s: s.score, reverse=True)[:5]
 
-    for idx, sent in enumerate(display_sents, 1):
-        snippet = sent.text.strip().replace("\n", " ")
-        if len(snippet) > 100:
-            snippet = snippet[:97] + "..."
+    for idx, sent in enumerate(top_sentences, 1):
+        full_text = sent.text.strip().replace("\n", " ")
         print(f"  {idx}. [{sent.label.upper()} - Score: {sent.score:.2f}] (Offsets: {sent.doc_start}:{sent.doc_end})")
-        print(f"     \"{snippet}\"")
+        print(f"     \"{full_text}\"")
 
     print("\n" + "=" * 70)
     print(result.disclaimer)

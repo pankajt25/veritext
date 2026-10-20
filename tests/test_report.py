@@ -18,7 +18,7 @@ from veritext.report.html_export import export_report_html
 from veritext.report.models import FullReport, HighlightSpan
 from veritext.report.pdf_export import export_report_pdf, sanitize_text_for_pdf
 from veritext.similarity.models import MatchSpan, SimilarityResult, SourceMatch
-from veritext.ui.services import MAX_WORDS_LIMIT, run_pipeline
+from veritext.ui.services import run_pipeline
 
 
 @pytest.fixture
@@ -351,10 +351,10 @@ def test_ignored_findings_excluded_from_exports(sample_report):
 
 
 # ==============================================================================
-# 6. Service Layer & Word Capping
+# 6. Service Layer & Adaptive Profiling
 # ==============================================================================
 
-def test_services_run_pipeline_word_capping():
+def test_services_run_pipeline_profile_and_plan():
     # Generate text with 5500 words
     long_text = "word " * 5500
     with patch("veritext.ui.services.check_document") as mock_sim, \
@@ -370,9 +370,10 @@ def test_services_run_pipeline_word_capping():
             filename="long_doc.txt",
             settings={"use_ai": False, "use_integrity": False},
         )
-        assert report.metadata.get("truncated") is True
-        assert report.metadata.get("original_word_count") == 5500
-        assert len(report.original_text.split()) == MAX_WORDS_LIMIT
+        assert report.profile is not None
+        assert report.profile.get("word_count") == 5500
+        assert report.plan is not None
+        assert len(report.original_text.split()) == 5500
 
 
 # ==============================================================================

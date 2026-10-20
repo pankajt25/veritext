@@ -11,6 +11,27 @@ logger = logging.getLogger(__name__)
 
 SEMANTIC_SCHOLAR_API_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
+# Session rate limit and disable flag
+_SESSION_RATE_LIMITED: bool = False
+_DISABLED_BY_CONFIG: bool = False
+
+
+def set_semantic_scholar_disabled(disabled: bool = True) -> None:
+    """Configures whether Semantic Scholar is explicitly disabled."""
+    global _DISABLED_BY_CONFIG
+    _DISABLED_BY_CONFIG = disabled
+
+
+def reset_semantic_scholar_session() -> None:
+    """Resets the in-memory session rate-limit flag."""
+    global _SESSION_RATE_LIMITED
+    _SESSION_RATE_LIMITED = False
+
+
+def is_semantic_scholar_available() -> bool:
+    """Returns True if Semantic Scholar is active and not rate-limited for this session."""
+    return not (_SESSION_RATE_LIMITED or _DISABLED_BY_CONFIG)
+
 
 def search(
     query: str, limit: int = 5, client: Optional[PoliteHttpClient] = None
@@ -18,7 +39,13 @@ def search(
     """
     Searches Semantic Scholar API for academic papers.
     Unauthenticated requests may return 429; degrades gracefully and never crashes.
+    After the first 429, skips Semantic Scholar for the rest of the session with a single log line.
     """
+    global _SESSION_RATE_LIMITED
+
+    if not is_semantic_scholar_available():
+        return []
+
     if not query or not query.strip():
         return []
 
@@ -33,8 +60,9 @@ def search(
         resp = http.get(SEMANTIC_SCHOLAR_API_URL, params=params)
 
         if resp.status_code == 429:
+            _SESSION_RATE_LIMITED = True
             logger.warning(
-                "Semantic Scholar unauthenticated rate limit reached (HTTP 429). Skipping gracefully."
+                "Semantic Scholar returned HTTP 429 (rate-limited). Skipping Semantic Scholar for the remainder of this session."
             )
             return []
 

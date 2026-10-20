@@ -25,23 +25,25 @@ from veritext.ingest.splitter import is_heading_text
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WORD_CAP = 5000
 MIN_WORD_COUNT = 150
 
 
 def detect_ai(
     document: Union[Document, str, Path],
     use_roberta: bool = False,
-    max_words: int = DEFAULT_WORD_CAP,
+    max_words: Optional[int] = None,
+    plan: Optional[Any] = None,
+    word_ranges: Optional[List[Tuple[int, int]]] = None,
     config_path: Optional[Path] = None,
     progress_callback=None,
+    cancel_check=None,
 ) -> AIResult:
     """
     Performs AI text detection under Lite Mode constraints:
     - Below 150 words: returns 'insufficient text'.
     - If distilgpt2 is unavailable locally: operates on stylometry alone with reduced_confidence=True.
     - RoBERTa classifier is strictly opt-in via use_roberta=True.
-    - Caps analysis at max_words (default 5000 words).
+    - Uses adaptive section sampling or full document analysis without fixed word caps.
     - Returns JSON-serializable AIResult with exact sentence character offsets.
     """
     # 1. Normalize input to Document
@@ -86,17 +88,43 @@ def detect_ai(
                 f"Document contains {total_words} words. Statistical AI detection requires at least 150 words "
                 "to yield statistically sound distributional features."
             ],
-            metadata={"word_cap": max_words},
+            metadata={
+                "words_analyzed": 0,
+                "coverage_percent": 0.0,
+                "sampling_mode": "none",
+                "word_ranges": [],
+            },
         )
 
-    # 3. Cap text if exceeding max_words
-    if total_words > max_words:
+    # 3. Determine text slice based on section sampling ranges or full document
+    ranges = word_ranges
+    if ranges is None and plan is not None:
+        ai_plan = getattr(plan, "engines", {}).get("ai_detect")
+        if ai_plan:
+            ranges = getattr(ai_plan, "word_ranges", None)
+
+    if ranges:
+        sampled_words = []
+        for start_w, end_w in ranges:
+            sampled_words.extend(words[start_w:end_w])
+        analysis_text = " ".join(sampled_words)
+        analysis_word_count = len(sampled_words)
+        sampling_mode = (
+            "full"
+            if (len(ranges) == 1 and ranges[0] == (0, total_words))
+            else "section_sampled"
+        )
+    elif max_words is not None and total_words > max_words:
         capped_words = words[:max_words]
         analysis_text = " ".join(capped_words)
         analysis_word_count = max_words
+        sampling_mode = "truncated"
+        ranges = [(0, max_words)]
     else:
         analysis_text = clean_text
         analysis_word_count = total_words
+        sampling_mode = "full"
+        ranges = [(0, total_words)]
 
     if progress_callback:
         progress_callback("Extracting stylometric features...")
@@ -138,6 +166,8 @@ def detect_ai(
             lm_features = compute_lm_features(
                 text=analysis_text,
                 sentences=scored_sent_texts,
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
             )
             sentence_perplexities = lm_features.get("sentence_perplexities", [])
         except Exception as e:
@@ -217,6 +247,8 @@ def detect_ai(
     # Sort sentence results by score descending (most AI-like first)
     sentence_results.sort(key=lambda item: item.score, reverse=True)
 
+    cov_pct = round((analysis_word_count / total_words) * 100.0, 1) if total_words > 0 else 0.0
+
     return AIResult(
         status="success",
         word_count=total_words,
@@ -228,8 +260,11 @@ def detect_ai(
         features=combined_features,
         explanations=explanations,
         metadata={
-            "word_cap_applied": total_words > max_words,
             "words_analyzed": analysis_word_count,
+            "total_words": total_words,
+            "coverage_percent": cov_pct,
+            "sampling_mode": sampling_mode,
+            "word_ranges": ranges,
             "used_roberta": use_roberta and roberta_prob is not None,
             "roberta_probability": round(roberta_prob, 4) if roberta_prob is not None else None,
         },

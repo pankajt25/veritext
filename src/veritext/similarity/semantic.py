@@ -115,10 +115,11 @@ def encode_texts_cached(
     texts: List[str],
     cache: Optional[EmbeddingCache] = None,
     model=None,
-    batch_size: int = 32,
+    batch_size: int = 16,
 ) -> np.ndarray:
     """
     Computes normalized embeddings for texts using EmbeddingCache and SentenceTransformer.
+    Embeds texts in batches of 16 or fewer to ensure low memory consumption.
     """
     if not texts:
         return np.empty((0, EMBEDDING_DIM), dtype=np.float32)
@@ -133,16 +134,21 @@ def encode_texts_cached(
     if missing_indices:
         missing_texts = [texts[i] for i in missing_indices]
         encoder = model or get_embedding_model()
-        computed = encoder.encode(
-            missing_texts,
-            batch_size=batch_size,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        )
-        for idx, vec in zip(missing_indices, computed):
-            vectors[idx] = vec
-        emb_cache.set_many(missing_texts, computed)
+
+        # Batch encode in chunks of at most 16
+        for b in range(0, len(missing_texts), batch_size):
+            b_slice = missing_texts[b : b + batch_size]
+            computed = encoder.encode(
+                b_slice,
+                batch_size=min(16, len(b_slice)),
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+            )
+            for sub_idx, vec in enumerate(computed):
+                orig_idx = missing_indices[b + sub_idx]
+                vectors[orig_idx] = vec
+            emb_cache.set_many(b_slice, computed)
 
     # Normalize vectors to unit length for cosine similarity
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
@@ -208,15 +214,36 @@ def find_semantic_matches(
     cache: Optional[EmbeddingCache] = None,
     model=None,
     top_k: int = 3,
+    block_size: int = 256,
+    progress_callback=None,
+    cancel_check=None,
+    word_ranges: Optional[List[Tuple[int, int]]] = None,
 ) -> List[MatchSpan]:
     """
-    Performs semantic vector search using FAISS nearest-neighbor matching
-    to detect paraphrased and near-copy passages, skipping spans covered by exact matches.
+    Performs semantic vector search using blocked matrix multiplication to detect
+    paraphrased and near-copy passages without holding the full similarity matrix.
     """
+    import math
+
     covered_spans = exact_spans or []
 
     # 1. Prepare document sentence windows not covered by exact matches
     all_windows = build_sentence_windows(document, window_size=2)
+
+    # Optional word range filtering from analysis plan
+    if word_ranges:
+        clean_text = document.clean_text or ""
+        text_words = clean_text.split()
+        total_w = len(text_words)
+        # Fast helper: approximate word index from char offset
+        allowed_windows = []
+        for w_text, w_start, w_end in all_windows:
+            w_idx = len(clean_text[:w_start].split())
+            in_range = any(r_start <= w_idx < r_end for r_start, r_end in word_ranges)
+            if in_range:
+                allowed_windows.append((w_text, w_start, w_end))
+        all_windows = allowed_windows
+
     doc_windows = [
         (w_text, w_start, w_end)
         for w_text, w_start, w_end in all_windows
@@ -260,24 +287,42 @@ def find_semantic_matches(
     if not candidate_passages:
         return []
 
-    # 3. Compute Embeddings with Caching
+    # 3. Compute Embeddings with Caching (batches of <= 16)
     doc_texts = [w[0] for w in doc_windows]
     cand_texts = [cp["text"] for cp in candidate_passages]
 
-    doc_vectors = encode_texts_cached(doc_texts, cache=cache, model=model)
-    cand_vectors = encode_texts_cached(cand_texts, cache=cache, model=model)
+    doc_vectors = encode_texts_cached(doc_texts, cache=cache, model=model, batch_size=16)
+    cand_vectors = encode_texts_cached(cand_texts, cache=cache, model=model, batch_size=16)
 
-    # 4. Perform Vector Nearest-Neighbor Search using normalized cosine matrix multiplication
+    # 4. Perform Block-wise Nearest-Neighbor Search (blocks of 256 document windows)
     match_pairs: List[Tuple[int, int, float]] = []
-    # Cosine similarity matrix: (num_doc_windows, num_cand_passages)
-    sim_matrix = np.dot(doc_vectors, cand_vectors.T)
     k = min(top_k, len(candidate_passages))
-    for d_idx in range(len(doc_windows)):
-        top_indices = np.argsort(sim_matrix[d_idx])[::-1][:k]
-        for c_idx in top_indices:
-            sim = float(sim_matrix[d_idx, c_idx])
-            if sim >= threshold:
-                match_pairs.append((d_idx, int(c_idx), sim))
+    num_blocks = max(1, math.ceil(len(doc_windows) / block_size))
+
+    for block_idx in range(num_blocks):
+        if cancel_check and cancel_check():
+            logger.info("Semantic matching cancelled by user.")
+            break
+
+        b_start = block_idx * block_size
+        b_end = min(b_start + block_size, len(doc_windows))
+
+        if progress_callback:
+            progress_callback(f"Semantic matching: block {block_idx + 1} of {num_blocks}")
+
+        doc_block = doc_vectors[b_start:b_end]
+        sim_block = np.dot(doc_block, cand_vectors.T)
+
+        for local_d_idx in range(len(doc_block)):
+            d_idx = b_start + local_d_idx
+            top_indices = np.argsort(sim_block[local_d_idx])[::-1][:k]
+            for c_idx in top_indices:
+                sim = float(sim_block[local_d_idx, c_idx])
+                if sim >= threshold:
+                    match_pairs.append((d_idx, int(c_idx), sim))
+
+        del sim_block
+        del doc_block
 
     # 5. Formulate MatchSpans
     semantic_spans: List[MatchSpan] = []

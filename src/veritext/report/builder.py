@@ -17,6 +17,8 @@ def build_report(
     ai: Optional[AIResult] = None,
     integrity: Optional[IntegrityReport] = None,
     settings: Optional[Dict[str, Any]] = None,
+    profile: Optional[Any] = None,
+    plan: Optional[Any] = None,
 ) -> FullReport:
     """Merges outputs from all analysis engines into a unified FullReport.
 
@@ -26,6 +28,8 @@ def build_report(
         ai: Optional Stage 4 AIDetectionResult.
         integrity: Optional Stage 5 IntegrityReport.
         settings: Analysis configuration options used.
+        profile: Optional DocumentProfile instance or dict.
+        plan: Optional AnalysisPlan instance or dict.
 
     Returns:
         FullReport containing unified highlight spans and summary metrics.
@@ -191,6 +195,9 @@ def build_report(
 
     summary_str = " | ".join(summary_parts) if summary_parts else "No analyses executed."
 
+    prof_dict = profile.to_dict() if hasattr(profile, "to_dict") else profile
+    plan_dict = plan.to_dict() if hasattr(plan, "to_dict") else plan
+
     return FullReport(
         document_name=doc_name,
         document_path=doc_path,
@@ -201,6 +208,8 @@ def build_report(
         ai_detect=ai,
         integrity=integrity,
         highlights=span_items,
+        profile=prof_dict,
+        plan=plan_dict,
         summary=summary_str,
         disclaimer=DEFAULT_DISCLAIMER,
         metadata={

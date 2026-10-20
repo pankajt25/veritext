@@ -4,7 +4,10 @@ from veritext.sources.clients.arxiv import search as search_arxiv
 from veritext.sources.clients.crossref import search as search_crossref
 from veritext.sources.clients.openalex import search as search_openalex
 from veritext.sources.clients.semantic_scholar import (
+    is_semantic_scholar_available,
+    reset_semantic_scholar_session,
     search as search_semantic_scholar,
+    set_semantic_scholar_disabled,
 )
 from veritext.sources.clients.wikipedia import search as search_wikipedia
 
@@ -23,4 +26,7 @@ __all__ = [
     "search_openalex",
     "search_semantic_scholar",
     "search_wikipedia",
+    "is_semantic_scholar_available",
+    "reset_semantic_scholar_session",
+    "set_semantic_scholar_disabled",
 ]

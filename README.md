@@ -28,6 +28,9 @@ veritext/
 ├── src/
 │   └── veritext/
 │       ├── __init__.py           # Package root
+│       ├── profile.py            # Fast document profiler & sizing classifier
+│       ├── planner.py            # Adaptive resource planner & section sampling
+│       ├── timing.py             # Hardware timing calibration & speed benchmarking
 │       ├── ingest/               # Document loaders, cleaners, and splitters
 │       ├── sources/              # Free source search, clients, and local FTS5 store
 │       ├── similarity/           # Similarity and plagiarism detection
@@ -310,40 +313,50 @@ Open your browser at `http://localhost:8501`.
 
 ### Web UI Features & Navigation
 
-- **Document Ingestion**: Upload any `.docx`, `.pdf`, `.tex`, `.txt`, or `.md` file, or select from bundled sample documents (`data/samples/`).
+- **Document Profiling & Plan Preview**: Immediately upon upload, displays document statistics (words, characters, sentences, estimated pages, language, size class) and a live per-engine analysis plan with coverage and estimated times.
+- **Adaptive Planning Controls**:
+  - **Planning Modes**: `Auto` (automatically fits execution to time budgets using section sampling across the entire document), `Full document` (runs full document across all enabled engines without caps), and `Custom` (user-defined word limits or budgets).
+  - **Engine Time Budget**: Configurable slider (default: 10 minutes per engine).
+  - **Cancellation Control**: Clean stop button that preserves completed engine results.
 - **Sidebar Engine Controls**:
   - **Offline Mode**: Enabled by default for fast, zero-network checks against your local library.
-  - **Online Search**: Queries Crossref, OpenAlex, arXiv, Semantic Scholar, and Wikipedia.
-  - **Semantic Vector Paraphrase Search**: Dense sentence embeddings using `all-MiniLM-L6-v2`.
-  - **AI Text Detection (Lite Mode)**: Causal LM perplexity analysis using `distilgpt2` and stylometry.
+  - **Online Search**: Queries Crossref, OpenAlex, arXiv, Semantic Scholar, and Wikipedia (skips automatically on rate limits).
+  - **Semantic Vector Paraphrase Search**: Dense sentence embeddings using `all-MiniLM-L6-v2` with block-wise similarity.
+  - **AI Text Detection (Lite Mode)**: Causal LM perplexity analysis using chunked `distilgpt2` (512-token chunks, 64-token overlap) and stylometry.
   - **Optional RoBERTa Model**: Opt-in classifier enabled only when weights are pre-downloaded.
-  - **Similarity Threshold**: Fine-tune the minimum match sensitivity (default: 75%).
 - **Low-Resource Architecture**:
-  - Automatically truncates documents > 5,000 words with a prominent notification.
-  - Sequential analysis execution with real-time status indicators.
-  - Garbage collection (`gc.collect()`) after inference to free memory.
-  - Results cached in `st.session_state` so filtering or dismissing highlights never triggers re-runs.
+  - Memory-safe chunked tokenization keeps memory consumption flat regardless of document length.
+  - White-font on dark/coloured table headers is automatically resolved to eliminate false positives.
+  - Soft hyphens and non-breaking spaces are categorized as informational rather than high severity.
+  - Repeated identical findings (e.g. table header cells) are consolidated into grouped findings.
+  - Garbage collection (`gc.collect()`) runs periodically to ensure low peak RAM on 8 GB systems.
 - **Tab Layout**:
-  - **Summary**: Key metrics, interactive score gauges (Plagiarism %, AI Probability %), and high-level findings summary.
-  - **Highlighted Document**: Safe HTML render of original text with colour-blind accessible highlight borders, hover tooltips, highlight filter checkboxes, and an interactive dismissal manager to ignore false positives.
+  - **Summary & Plan**: Key metrics, document profile, engine coverage in plain words, and executive summary.
+  - **Highlighted Document**: Safe HTML render of original text with colour-blind accessible highlight borders, hover tooltips, and interactive dismissal manager.
   - **Sources**: Ranked table of matched sources with overlap percentages and character counts.
-  - **AI Analysis**: Document-level AI score, confidence rating, stylometric drivers, and top AI-like sentences table.
-  - **Integrity**: Granular breakdown of formatting anomalies, citation discrepancies, and uncited assertions.
+  - **AI Analysis**: Document-level AI score, confidence rating, stylometric drivers, and sentence classifications.
+  - **Integrity Findings**: Post-grouped breakdown of formatting anomalies, citations, and homoglyphs.
   - **Download**: One-click exports for `.json`, standalone `.html`, and `.pdf` reports.
 
 ### Consolidated Report CLI
 
-Generate JSON, HTML, and PDF reports directly from the terminal:
+Generate JSON, HTML, and PDF reports directly from the terminal with adaptive planning:
 
 ```bash
-# Offline analysis (Local library + Integrity checks)
-python -m veritext.report data/samples/plagiarism_demo/copied_doc.txt
+# Print profile and execution plan then exit (without running)
+python -m veritext.report data/samples/sample_academic.docx --plan-only
 
-# Full multi-engine analysis with AI text detection and dense semantic matching
-python -m veritext.report data/samples/ai_demo/ai_sample_1.txt --ai --semantic
+# Adaptive auto-budget analysis (default: 10m per engine budget)
+python -m veritext.report data/samples/plagiarism_demo/copied_doc.txt --mode auto
 
-# Specify custom output directory (default: data/reports)
-python -m veritext.report data/samples/sample_academic.txt --out-dir output/
+# Full document analysis without word limits
+python -m veritext.report data/samples/ai_demo/ai_sample_1.txt --ai --mode full
+
+# Custom word limits and time budgets
+python -m veritext.report data/samples/sample_academic.pdf --ai --semantic --mode custom --ai-max-words 8000 --time-budget 5
+
+# Hardware speed calibration
+python -m veritext.timing calibrate
 ```
 
 ### Privacy & Offline Guarantees

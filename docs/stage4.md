@@ -42,7 +42,7 @@ Overall AI Probability & Band                         Sentence-Level Offsets & L
 2. **Strict Memory Management**: Employs lazy loading; models are freed from RAM immediately after inference via `gc.collect()`. Peak memory remains bounded at ~312 MB.
 3. **Overlapping Strided Windows**: Documents are processed in chunks of 512 tokens with a 64-token overlap (stride = 448 tokens) to prevent boundary truncation artifacts while evaluating per-token log-ranks.
 4. **Offline Stylometry Fallback**: Model files are never downloaded silently. If `distilgpt2` weights are not installed, Veritext automatically falls back to stylometry-only analysis with `reduced_confidence: true`.
-5. **Configurable Word Capping**: Default analysis caps processing at 5,000 words per document to maintain rapid execution on dual-core processors.
+5. **Adaptive Analysis & Section Sampling**: No fixed word cap. Documents are profiled upon ingestion, and analysis time is planned against hardware-calibrated speed benchmarks. Long documents under time constraints use section sampling across evenly spaced 500-word blocks.
 6. **Opt-in Heavy Classifiers**: RoBERTa (`Hello-SimpleAI/chatgpt-detector-roberta`) is strictly opt-in via `--use-roberta` and is never loaded by default.
 
 ---

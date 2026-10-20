@@ -180,6 +180,32 @@ def export_report_pdf(
     pdf.multi_cell(190, 4.5, sanitize_text_for_pdf(report.summary))
     pdf.ln(5)
 
+    # 4b. Document Profile & Plan Coverage
+    if report.profile or report.plan:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(0, 5.5, "Document Profile & Adaptive Engine Coverage", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", 8.5)
+        pdf.set_text_color(51, 65, 85)
+
+        if report.profile:
+            p = report.profile
+            prof_str = (
+                f"Words: {p.get('word_count', 0):,}   |   "
+                f"Characters: {p.get('character_count', 0):,}   |   "
+                f"Pages: {p.get('page_estimate', 1):,}   |   "
+                f"Size Class: {str(p.get('size_class', '')).upper()}   |   "
+                f"Language: {p.get('language_guess', 'en')}"
+            )
+            pdf.cell(0, 4.5, prof_str, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        if report.plan:
+            pl_engines = report.plan.get("engines", {})
+            for eng_k, eng_v in pl_engines.items():
+                cov_desc = eng_v.get("coverage_description", "full document analysed")
+                pdf.cell(0, 4.5, f"- {eng_k.replace('_', ' ').title()}: {cov_desc}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(4)
+
     # 5. Matched Sources Table
     if report.similarity and report.similarity.sources:
         pdf.set_font("Helvetica", "B", 11)

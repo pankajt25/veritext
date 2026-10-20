@@ -90,6 +90,8 @@ class FullReport:
     highlights: List[HighlightSpan] = field(default_factory=list)
     summary: str = ""
     disclaimer: str = DEFAULT_DISCLAIMER
+    profile: Optional[Dict[str, Any]] = None
+    plan: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -105,6 +107,8 @@ class FullReport:
             "ai_detect": self.ai_detect.to_dict() if self.ai_detect else None,
             "integrity": self.integrity.to_dict() if self.integrity else None,
             "highlights": [h.to_dict() for h in self.highlights],
+            "profile": self.profile,
+            "plan": self.plan,
             "summary": self.summary,
             "disclaimer": self.disclaimer,
             "metadata": self.metadata,
@@ -259,6 +263,8 @@ class FullReport:
             ai_detect=ai_obj,
             integrity=integrity_obj,
             highlights=highlights,
+            profile=data.get("profile"),
+            plan=data.get("plan"),
             summary=data.get("summary", ""),
             disclaimer=data.get("disclaimer", DEFAULT_DISCLAIMER),
             metadata=data.get("metadata", {}),

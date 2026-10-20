@@ -10,6 +10,9 @@ from veritext.ai_detect.features_lm import download_distilgpt2, is_distilgpt2_av
 from veritext.ai_detect.models import DISCLAIMER_TEXT
 from veritext.ai_detect.roberta import download_roberta, is_roberta_available
 from veritext.ingest.pipeline import load_document
+from veritext.planner import load_limits_config, make_plan, print_profile_and_plan
+from veritext.profile import profile_document
+from veritext.timing import load_timing
 
 
 def handle_download_models(args):
@@ -72,23 +75,56 @@ def handle_detect(args):
         print(f"Error loading document: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # 1. Profile and Plan First
+    profile = profile_document(doc)
+    plan_options = {
+        "mode": args.mode,
+        "time_budget_minutes": args.time_budget,
+        "use_exact": True,
+        "use_checks": True,
+        "use_ai": True,
+        "use_semantic": False,
+        "custom_ai_words": args.ai_max_words or args.max_words or 0,
+        "custom_semantic_words": args.semantic_max_words,
+    }
+    timing = load_timing()
+    limits = load_limits_config()
+    plan = make_plan(profile=profile, options=plan_options, timing=timing, settings=limits)
+
+    # Print Profile and Plan
+    print_profile_and_plan(profile, plan)
+
+    if args.plan_only:
+        print("[Plan-Only] Exiting without running AI detection.")
+        return
+
     has_gpt = is_distilgpt2_available()
+    ai_plan = plan.engines.get("ai_detect")
 
     print("=" * 70)
     print("Veritext AI-Written Text Analysis")
     print("=" * 70)
     print(f"Document: {doc_path.name}")
-    print(f"Words:    {len(doc.clean_text.split())}")
+    print(f"Words:    {profile.word_count:,}")
+    print(f"Plan:     {ai_plan.coverage_description if ai_plan else 'full'}")
     print(f"Engine:   {'Full Neural (distilgpt2 + Stylometry)' if has_gpt else 'Stylometry-Only Fallback (reduced confidence)'}")
     if not has_gpt:
         print("Note:     Neural model weights not found locally. To download: python -m veritext.ai_detect --download-models")
     print("-" * 70)
 
-    result = detect_ai(
-        document=doc,
-        use_roberta=args.use_roberta,
-        max_words=args.max_words,
-    )
+    result = None
+    try:
+        result = detect_ai(
+            document=doc,
+            use_roberta=args.use_roberta,
+            plan=plan,
+            word_ranges=ai_plan.word_ranges if (ai_plan and ai_plan.sampling_mode == "section_sampled") else None,
+        )
+    except KeyboardInterrupt:
+        print("\n\n⚠️ AI detection interrupted by user (Ctrl+C).")
+        if args.json_output:
+            print("Partial results cannot be serialized.")
+        return
 
     if result.status == "insufficient_text":
         print(f"\nResult: INSUFFICIENT TEXT ({result.word_count} words)")
@@ -154,10 +190,40 @@ def main():
         help="Calibrate ensemble weights on a labeled CSV dataset (text,label)",
     )
     parser.add_argument(
+        "--mode",
+        choices=["auto", "full", "custom"],
+        default="auto",
+        help="Planning mode ('auto', 'full', 'custom')",
+    )
+    parser.add_argument(
+        "--time-budget",
+        type=float,
+        default=10.0,
+        help="Time budget in minutes (default: 10.0)",
+    )
+    parser.add_argument(
+        "--ai-max-words",
+        type=int,
+        default=0,
+        help="Custom mode word limit for AI detection (0 for unlimited)",
+    )
+    parser.add_argument(
+        "--semantic-max-words",
+        type=int,
+        default=0,
+        help="Custom mode word limit for semantic matching (0 for unlimited)",
+    )
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        default=False,
+        help="Print profile and plan then exit without running",
+    )
+    parser.add_argument(
         "--max-words",
         type=int,
-        default=5000,
-        help="Maximum word count to evaluate (default: 5000 words)",
+        default=0,
+        help="Legacy custom word limit (0 for unlimited)",
     )
     parser.add_argument(
         "--json",

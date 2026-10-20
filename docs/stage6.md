@@ -133,7 +133,7 @@ To support colour-blind users and high-contrast environments, each category uses
 ### Low-Resource Hardware Optimization
 
 To run smoothly on resource-constrained hardware (e.g. Intel i3 dual-core, 8 GB RAM, WSL, no GPU):
-1. **5,000-Word Capping**: Documents exceeding 5,000 words are truncated to the first 5,000 words with a prominent warning message.
+1. **Adaptive Document Profiling & Planning**: Documents are immediately profiled upon upload (word count, sentence count, language, size class). Rather than a fixed cap, an adaptive per-engine plan allocates resources based on machine timing calibration and configurable budgets.
 2. **Opt-In Heavy Engines**: Heavy models are off by default:
    - AI text detection (`distilgpt2`) runs only when explicitly checked.
    - Semantic vector paraphrase search (`all-MiniLM-L6-v2`) runs only when checked.

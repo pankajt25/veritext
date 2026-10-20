@@ -9,10 +9,13 @@ from typing import List, Optional
 from veritext.ai_detect.detector import detect_ai
 from veritext.checks.runner import run_all_checks
 from veritext.ingest.pipeline import load_document
+from veritext.planner import load_limits_config, make_plan, print_profile_and_plan
+from veritext.profile import profile_document
 from veritext.report.builder import build_report
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
 from veritext.similarity.engine import check_document
+from veritext.timing import load_timing
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -46,6 +49,36 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Execute dense neural vector paraphrase search",
     )
     parser.add_argument(
+        "--mode",
+        choices=["auto", "full", "custom"],
+        default="auto",
+        help="Adaptive planning mode: 'auto' (budget-based), 'full' (no word caps), or 'custom'",
+    )
+    parser.add_argument(
+        "--time-budget",
+        type=float,
+        default=10.0,
+        help="Analysis time budget per engine in minutes (default: 10.0)",
+    )
+    parser.add_argument(
+        "--ai-max-words",
+        type=int,
+        default=0,
+        help="Custom mode word limit for AI detection (0 for unlimited)",
+    )
+    parser.add_argument(
+        "--semantic-max-words",
+        type=int,
+        default=0,
+        help="Custom mode word limit for semantic matching (0 for unlimited)",
+    )
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        default=False,
+        help="Print document profile and per-engine execution plan, then exit without running",
+    )
+    parser.add_argument(
         "--out-dir",
         default="data/reports",
         help="Directory to save generated report files (default: data/reports)",
@@ -61,48 +94,89 @@ def main(argv: Optional[List[str]] = None) -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # 1. Ingest document & Profile
+    doc = load_document(target_path)
+    profile = profile_document(doc)
+
+    # 2. Build Analysis Plan
+    plan_options = {
+        "mode": args.mode,
+        "time_budget_minutes": args.time_budget,
+        "use_exact": True,
+        "use_checks": True,
+        "use_ai": bool(args.ai),
+        "use_semantic": bool(args.semantic),
+        "custom_ai_words": args.ai_max_words,
+        "custom_semantic_words": args.semantic_max_words,
+    }
+    timing = load_timing()
+    limits = load_limits_config()
+    plan = make_plan(profile=profile, options=plan_options, timing=timing, settings=limits)
+
+    # 3. Print Profile & Plan first
+    print_profile_and_plan(profile, plan)
+
+    if args.plan_only:
+        print("[Plan-Only] Exiting without running analysis engines.")
+        return 0
+
     print("=" * 65)
     print(f"  VERITEXT CONSOLIDATED REPORT GENERATOR")
     print("=" * 65)
     print(f"Document: {target_path}")
     print(f"Output Directory: {out_dir}")
 
-    # 1. Ingest document
-    print("\n[1/4] Ingesting and canonicalizing document...")
-    doc = load_document(target_path)
-
-    # 2. Plagiarism / Similarity Analysis
-    use_online = bool(args.online)
-    skip_semantic = not bool(args.semantic)
-    print(f"[2/4] Running similarity detection (online={use_online}, semantic={not skip_semantic})...")
-    sim_result = check_document(
-        document=doc,
-        use_online=use_online,
-        use_local=True,
-        options={"skip_semantic": skip_semantic},
-    )
-
-    # 3. AI Text Detection
+    sim_result = None
     ai_result = None
-    if args.ai:
-        print("[3/4] Running AI-text stylometric + LM detection...")
-        try:
-            ai_result = detect_ai(doc)
-        except Exception as e:
-            print(f"Warning: AI detection failed ({e}). Proceeding without AI score.")
-    else:
-        print("[3/4] Skipping AI text detection (pass --ai to enable).")
+    integ_result = None
 
-    # 4. Integrity Checks
-    print("[4/4] Executing document integrity, citations, and evasion checks...")
-    integ_result = run_all_checks(doc, similarity_result=sim_result)
+    try:
+        # Plagiarism / Similarity Analysis (always full document for exact winnowing)
+        use_online = bool(args.online)
+        skip_semantic = not bool(args.semantic)
+        sem_plan = plan.engines.get("semantic")
 
-    # 5. Build Unified Report
+        print(f"\n[1/3] Running similarity detection (online={use_online}, semantic={not skip_semantic})...")
+        sim_result = check_document(
+            document=doc,
+            use_online=use_online,
+            use_local=True,
+            options={
+                "skip_semantic": skip_semantic,
+                "word_ranges": sem_plan.word_ranges if (sem_plan and sem_plan.sampling_mode == "section_sampled") else None,
+            },
+        )
+
+        # AI Text Detection
+        ai_plan = plan.engines.get("ai_detect")
+        if args.ai and ai_plan and ai_plan.enabled:
+            print(f"[2/3] Running AI detection ({ai_plan.coverage_description})...")
+            try:
+                ai_result = detect_ai(
+                    doc,
+                    plan=plan,
+                    word_ranges=ai_plan.word_ranges if ai_plan.sampling_mode == "section_sampled" else None,
+                )
+            except Exception as e:
+                print(f"Warning: AI detection failed ({e}). Proceeding without AI score.")
+        else:
+            print(f"[2/3] Skipping AI text detection ({ai_plan.reason if ai_plan else 'disabled'}).")
+
+        # Integrity Checks (always full document)
+        print("[3/3] Executing document integrity, citations, and evasion checks (full document)...")
+        integ_result = run_all_checks(doc, similarity_result=sim_result)
+
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Analysis interrupted by user (Ctrl+C). Preserving partial results...")
+
+    # Build and export Report (full or partial)
     print("\nConsolidating findings and compiling reports...")
     settings = {
-        "offline": not use_online,
-        "semantic_enabled": not skip_semantic,
+        "offline": not bool(args.online),
+        "semantic_enabled": bool(args.semantic),
         "ai_enabled": bool(args.ai),
+        "mode": plan.mode,
+        "time_budget_minutes": plan.time_budget_minutes,
         "target_file": str(target_path),
     }
     report = build_report(
@@ -111,6 +185,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         ai=ai_result,
         integrity=integ_result,
         settings=settings,
+        profile=profile,
+        plan=plan,
     )
 
     # Generate timestamped filenames

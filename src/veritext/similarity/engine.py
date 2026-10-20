@@ -85,6 +85,9 @@ def check_document(
                 candidates=candidates,
                 exact_spans=exact_spans,
                 threshold=similarity_threshold,
+                progress_callback=opts.get("progress_callback"),
+                cancel_check=opts.get("cancel_check"),
+                word_ranges=opts.get("word_ranges"),
             )
         except Exception as e:
             logger.warning(f"Semantic search encountered an error: {e}")

@@ -109,7 +109,71 @@ def export_report_html(
                 )
     integ_tbody = "".join(integ_rows) if integ_rows else '<tr><td colspan="4" style="text-align:center; color:#64748b;">No integrity anomalies detected.</td></tr>'
 
-    # 6. Settings list
+    # 6. Profile & Plan HTML
+    profile_html = ""
+    if report.profile:
+        p = report.profile
+        profile_html = f"""
+    <div class="section card">
+      <h2>Document Profile & Sizing</h2>
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Word Count</div>
+          <div style="font-size:1.2rem; font-weight:700;">{p.get('word_count', 0):,}</div>
+        </div>
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Character Count</div>
+          <div style="font-size:1.2rem; font-weight:700;">{p.get('character_count', 0):,}</div>
+        </div>
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Estimated Pages</div>
+          <div style="font-size:1.2rem; font-weight:700;">{p.get('page_estimate', 1):,}</div>
+        </div>
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Size Category</div>
+          <div style="font-size:1.2rem; font-weight:700;">{str(p.get('size_class', 'medium')).upper()}</div>
+        </div>
+      </div>
+    </div>
+        """
+
+    plan_html = ""
+    if report.plan:
+        pl = report.plan
+        p_mode = html.escape(str(pl.get("mode", "auto")).upper())
+        p_budget = f"{pl.get('time_budget_minutes', 10.0):.1f} min"
+        plan_rows = []
+        for eng_k, ep in pl.get("engines", {}).items():
+            status = "Run" if ep.get("enabled", True) else "Skip"
+            cov = f"{ep.get('coverage_percent', 100.0):.1f}%"
+            est = f"{ep.get('estimated_seconds', 0.0):.1f}s"
+            desc = html.escape(ep.get("coverage_description", ""))
+            plan_rows.append(
+                f"<tr><td><strong>{html.escape(eng_k)}</strong></td><td>{status}</td><td>{ep.get('words_to_analyze', 0):,}</td><td>{cov}</td><td>{est}</td><td>{desc}</td></tr>"
+            )
+        plan_tbody = "".join(plan_rows)
+        plan_html = f"""
+    <div class="section card">
+      <h2>Adaptive Analysis Plan (Mode: {p_mode}, Budget: {p_budget})</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Engine</th>
+            <th>Status</th>
+            <th>Words Analysed</th>
+            <th>Coverage</th>
+            <th>Est. Time</th>
+            <th>Coverage Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plan_tbody}
+        </tbody>
+      </table>
+    </div>
+        """
+
+    # 7. Settings list
     settings_items = [f"<li><strong>{html.escape(str(k))}:</strong> {html.escape(str(v))}</li>" for k, v in report.settings.items()]
     settings_html = f"<ul>{''.join(settings_items)}</ul>" if settings_items else "<p>Default settings applied.</p>"
 
@@ -260,6 +324,9 @@ def export_report_html(
       <h2>Executive Summary</h2>
       <p>{summary_text}</p>
     </div>
+
+    {profile_html}
+    {plan_html}
 
     <div class="section card">
       <h2>Highlighted Document View</h2>

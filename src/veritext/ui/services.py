@@ -1,51 +1,48 @@
-"""Service layer orchestrating the Veritext analysis pipeline for UI and external consumers."""
+"""Service layer orchestrating the Veritext adaptive analysis pipeline.
 
+Profiles documents first, computes per-engine execution plans based on hardware calibration,
+and executes memory-safe chunked processing with live progress reporting and clean cancellation.
+No fixed word caps.
+"""
+
+from datetime import datetime, timezone
 import gc
 import io
+import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+import time
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from veritext.ai_detect.detector import detect_ai
 from veritext.checks.runner import run_all_checks
 from veritext.ingest.loaders import LOADER_MAP
 from veritext.ingest.models import Document
 from veritext.ingest.pipeline import load_document
+from veritext.planner import AnalysisPlan, load_limits_config, make_plan
+from veritext.profile import DocumentProfile, profile_document
 from veritext.report.builder import build_report
 from veritext.report.models import FullReport
 from veritext.similarity.engine import check_document
+from veritext.timing import load_timing, update_timing
 
-MAX_WORDS_LIMIT = 5000
+logger = logging.getLogger(__name__)
+
 UPLOADS_DIR = Path("data/uploads")
 
 
-def run_pipeline(
+def prepare_document_and_plan(
     target: Union[str, Path, bytes, io.BytesIO],
     filename: str,
     settings: Optional[Dict[str, Any]] = None,
-    progress_callback: Optional[Callable[[str, float], None]] = None,
-) -> FullReport:
-    """Executes the complete Veritext analysis pipeline with progress reporting and memory management.
+) -> Tuple[Document, DocumentProfile, AnalysisPlan]:
+    """Ingests target document, computes statistical profile, and prepares per-engine plan.
 
-    Args:
-        target: File path, bytes, or BytesIO buffer containing uploaded document.
-        filename: Original name of the document.
-        settings: Configuration options (e.g. use_online, use_semantic, use_ai, use_integrity, min_words).
-        progress_callback: Optional callback func(status_message, progress_fraction).
-
-    Returns:
-        FullReport containing unified findings and engine outputs.
+    Fast, offline, and safe to call immediately upon file upload.
     """
-    opts = settings or {}
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    opts = settings or {}
 
-    def report_progress(msg: str, frac: float):
-        if progress_callback:
-            progress_callback(msg, frac)
-
-    report_progress("Preparing and reading document...", 0.05)
-
-    # 1. Resolve file path
-    temp_file: Optional[Path] = None
+    # Resolve file path
     if isinstance(target, (bytes, io.BytesIO)):
         data_bytes = target.getvalue() if isinstance(target, io.BytesIO) else target
         temp_file = UPLOADS_DIR / f"upload_{filename}"
@@ -59,82 +56,161 @@ def run_pipeline(
     if ext not in LOADER_MAP:
         raise ValueError(f"Unsupported file format '{ext}'. Supported formats: {', '.join(LOADER_MAP.keys())}")
 
-    # 2. Ingest document
-    report_progress("Parsing document structure...", 0.15)
     doc = load_document(file_to_load)
-
-    # Check for empty content
     raw_text = doc.raw_text or ""
     if not raw_text.strip():
         raise ValueError(f"The document '{filename}' contains no readable text.")
 
-    # 3. Check 5000-word limit and truncate if necessary
-    words = raw_text.split()
-    is_truncated = False
-    original_word_count = len(words)
-    if original_word_count > MAX_WORDS_LIMIT:
-        is_truncated = True
-        truncated_words = words[:MAX_WORDS_LIMIT]
-        # Reconstruct truncated raw text
-        raw_text = " ".join(truncated_words)
-        doc.raw_text = raw_text
-        doc.clean_text = raw_text
-        report_progress(f"Document capped at {MAX_WORDS_LIMIT} words (original: {original_word_count} words)...", 0.20)
+    profile = profile_document(doc)
+    timing = load_timing()
+    limits = load_limits_config()
+    plan = make_plan(profile=profile, options=opts, timing=timing, settings=limits)
 
-    # 4. Plagiarism / Similarity Check
+    return doc, profile, plan
+
+
+def run_pipeline(
+    target: Union[str, Path, bytes, io.BytesIO],
+    filename: str,
+    settings: Optional[Dict[str, Any]] = None,
+    progress_callback: Optional[Callable[[str, float], None]] = None,
+    cancel_check: Optional[Callable[[], bool]] = None,
+) -> FullReport:
+    """Executes the adaptive Veritext analysis pipeline with per-engine planning.
+
+    Args:
+        target: File path, bytes, or BytesIO buffer containing uploaded document.
+        filename: Original name of the document.
+        settings: Configuration options (mode, time_budget_minutes, use_ai, use_semantic, etc.).
+        progress_callback: Optional callback func(status_message, progress_fraction).
+        cancel_check: Optional callable returning True when analysis should cancel cleanly.
+
+    Returns:
+        FullReport containing unified findings, document profile, and execution plan.
+    """
+    opts = settings or {}
+
+    def report_progress(msg: str, frac: float):
+        if progress_callback:
+            progress_callback(msg, frac)
+
+    report_progress("Profiling document structure...", 0.05)
+    doc, profile, plan = prepare_document_and_plan(target, filename, opts)
+
+    total_words = profile.word_count
+    observed_speeds: Dict[str, float] = {}
+
     sim_result = None
+    ai_result = None
+    integ_result = None
+
+    # Check cancellation before starting
+    if cancel_check and cancel_check():
+        logger.info("Pipeline cancelled before engine execution.")
+        return build_report(doc, settings=opts, profile=profile, plan=plan)
+
+    # 1. Similarity / Plagiarism Check
+    # Winnowing exact matching always processes full document (no cap)
+    exact_plan = plan.engines.get("exact")
+    semantic_plan = plan.engines.get("semantic")
     use_online = bool(opts.get("use_online", False))
-    use_semantic = bool(opts.get("use_semantic", False))
+    use_semantic = bool(semantic_plan and semantic_plan.enabled)
     min_words = int(opts.get("min_words", 8))
 
-    report_progress("Executing winnowing similarity analysis...", 0.35)
-    try:
-        sim_result = check_document(
-            document=doc,
-            use_online=use_online,
-            use_local=True,
-            options={
-                "skip_semantic": not use_semantic,
-                "min_words": min_words,
-            },
-        )
-    except Exception as e:
-        report_progress(f"Notice: Similarity engine encountered an issue: {e}", 0.45)
-
-    # 5. AI Text Detection
-    ai_result = None
-    use_ai = bool(opts.get("use_ai", True))
-    if use_ai:
-        report_progress("Evaluating stylometry and causal language model...", 0.60)
+    if exact_plan and exact_plan.enabled:
+        report_progress("Executing winnowing fingerprint analysis (full document)...", 0.20)
+        t0_sem = time.time()
         try:
-            ai_result = detect_ai(doc, use_roberta=bool(opts.get("use_roberta", False)))
+            sim_result = check_document(
+                document=doc,
+                use_online=use_online,
+                use_local=True,
+                options={
+                    "skip_semantic": not use_semantic,
+                    "min_words": min_words,
+                    "word_ranges": semantic_plan.word_ranges if (semantic_plan and semantic_plan.sampling_mode == "section_sampled") else None,
+                    "progress_callback": lambda msg: report_progress(msg, 0.35),
+                    "cancel_check": cancel_check,
+                },
+            )
+            t_sem_elapsed = time.time() - t0_sem
+            if use_semantic and semantic_plan and semantic_plan.words_to_analyze > 0:
+                observed_speeds["semantic_sec_per_1000"] = round(
+                    t_sem_elapsed * (1000.0 / semantic_plan.words_to_analyze), 2
+                )
         except Exception as e:
-            report_progress(f"Notice: AI detection skipped or failed: {e}", 0.70)
+            report_progress(f"Notice: Similarity engine issue: {e}", 0.45)
+            logger.warning(f"Similarity engine failed: {e}")
+
+    # Check cancellation after similarity
+    if cancel_check and cancel_check():
+        logger.info("Pipeline cancelled after similarity check.")
+        return build_report(doc, similarity=sim_result, settings=opts, profile=profile, plan=plan)
+
+    # 2. AI Text Detection
+    ai_plan = plan.engines.get("ai_detect")
+    if ai_plan and ai_plan.enabled:
+        ai_desc = ai_plan.coverage_description
+        report_progress(f"Evaluating AI detection ({ai_desc})...", 0.50)
+        t0_ai = time.time()
+        try:
+            ai_result = detect_ai(
+                document=doc,
+                use_roberta=bool(opts.get("use_roberta", False)),
+                word_ranges=ai_plan.word_ranges if ai_plan.sampling_mode == "section_sampled" else None,
+                plan=plan,
+                progress_callback=lambda msg: report_progress(msg, 0.65),
+                cancel_check=cancel_check,
+            )
+            t_ai_elapsed = time.time() - t0_ai
+            if ai_plan.words_to_analyze > 0:
+                observed_speeds["ai_distilgpt2_sec_per_1000"] = round(
+                    t_ai_elapsed * (1000.0 / ai_plan.words_to_analyze), 2
+                )
+        except Exception as e:
+            report_progress(f"Notice: AI detection issue: {e}", 0.70)
+            logger.warning(f"AI detection failed: {e}")
         finally:
             gc.collect()
 
-    # 6. Integrity & Formatting Checks
-    integ_result = None
-    use_integrity = bool(opts.get("use_integrity", True))
-    if use_integrity:
-        report_progress("Verifying citations, quotes, and hidden content...", 0.80)
+    # Check cancellation after AI detection
+    if cancel_check and cancel_check():
+        logger.info("Pipeline cancelled after AI detection.")
+        return build_report(doc, similarity=sim_result, ai=ai_result, settings=opts, profile=profile, plan=plan)
+
+    # 3. Integrity & Formatting Checks (always full document, no cap)
+    checks_plan = plan.engines.get("checks")
+    if checks_plan and checks_plan.enabled:
+        report_progress("Verifying integrity, white font, citations, and homoglyphs...", 0.85)
         try:
             integ_result = run_all_checks(doc, similarity_result=sim_result)
         except Exception as e:
-            report_progress(f"Notice: Integrity checks encountered an issue: {e}", 0.90)
+            report_progress(f"Notice: Integrity checks issue: {e}", 0.90)
+            logger.warning(f"Integrity checks failed: {e}")
 
-    # 7. Compile Full Report
+    # 4. Update Hardware Timing Profile with Smoothed Average
+    if observed_speeds:
+        try:
+            update_timing(observed_speeds)
+        except Exception as e:
+            logger.debug(f"Timing update omitted: {e}")
+
+    # 5. Compile Full Report
     report_progress("Compiling consolidated report...", 0.95)
     pipeline_settings = {
         "filename": filename,
+        "mode": plan.mode,
+        "time_budget_minutes": plan.time_budget_minutes,
         "use_online": use_online,
         "use_semantic": use_semantic,
-        "use_ai": use_ai,
-        "use_integrity": use_integrity,
+        "use_ai": bool(ai_plan and ai_plan.enabled),
+        "use_integrity": bool(checks_plan and checks_plan.enabled),
         "min_words": min_words,
-        "truncated": is_truncated,
-        "original_word_count": original_word_count,
-        "analyzed_word_count": min(original_word_count, MAX_WORDS_LIMIT),
+        "original_word_count": total_words,
+        "analyzed_word_count": max(
+            getattr(exact_plan, "words_to_analyze", 0),
+            getattr(ai_plan, "words_to_analyze", 0),
+        ),
     }
 
     report = build_report(
@@ -143,17 +219,9 @@ def run_pipeline(
         ai=ai_result,
         integrity=integ_result,
         settings=pipeline_settings,
+        profile=profile,
+        plan=plan,
     )
-    report.metadata["truncated"] = is_truncated
-    report.metadata["original_word_count"] = original_word_count
 
-    # Cleanup temporary upload file
-    if temp_file and temp_file.exists():
-        try:
-            temp_file.unlink()
-        except OSError:
-            pass
-
-    gc.collect()
-    report_progress("Analysis finished.", 1.0)
+    report_progress("Analysis complete!", 1.0)
     return report

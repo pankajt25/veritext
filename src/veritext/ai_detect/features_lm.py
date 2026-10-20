@@ -78,13 +78,16 @@ def compute_lm_features(
     model=None,
     max_chunk_tokens: int = 512,
     stride: int = 448,  # 512 max - 64 overlap
+    progress_callback=None,
+    cancel_check=None,
 ) -> Dict[str, Any]:
     """
     Computes language model features using distilgpt2 under Lite Mode:
-    - Perplexity (whole document)
+    - Perplexity (whole document) via memory-safe 512-token chunks with 64-token overlap
     - Mean token log-rank
     - Burstiness (std dev of per-sentence perplexities)
     - Per-sentence perplexity values
+    Tokenizes per-chunk to eliminate tokenizer sequence length warnings and prevent memory bloat.
     """
     import torch
 
@@ -106,11 +109,10 @@ def compute_lm_features(
     try:
         with torch.inference_mode():
             # 1. Whole Document Perplexity and Token Log-Ranks using Strided Chunks
-            encodings = tokenizer(text, return_tensors="pt")
-            input_ids = encodings.input_ids
-            seq_len = input_ids.size(1)
+            words = text.split()
+            total_words = len(words)
 
-            if seq_len <= 1:
+            if total_words <= 1:
                 return {
                     "perplexity": 1000.0,
                     "mean_log_rank": 10.0,
@@ -118,54 +120,111 @@ def compute_lm_features(
                     "sentence_perplexities": [],
                 }
 
-            nlls: List[float] = []
-            log_ranks: List[float] = []
+            # Words per chunk estimate: ~380 words produce ~490-512 tokens in distilgpt2
+            # Stride words: ~332 words (overlap ~48 words ≈ 64 tokens)
+            chunk_word_size = max(20, int(max_chunk_tokens / 1.35))
+            stride_word_size = max(10, int(stride / 1.35))
 
-            prev_end_loc = 0
-            for begin_loc in range(0, seq_len, stride):
-                end_loc = min(begin_loc + max_chunk_tokens, seq_len)
-                trg_len = end_loc - prev_end_loc
-                chunk_input_ids = input_ids[:, begin_loc:end_loc]
+            word_starts = list(range(0, total_words, stride_word_size))
+            if not word_starts:
+                word_starts = [0]
+            total_chunks = len(word_starts)
+
+            total_nll = 0.0
+            total_evaluated_tokens = 0
+            total_log_rank = 0.0
+            count_log_rank = 0
+
+            for chunk_idx, w_start in enumerate(word_starts):
+                if cancel_check and cancel_check():
+                    logger.info("AI detection cancelled by user during LM chunking.")
+                    break
+
+                if progress_callback:
+                    progress_callback(f"AI detection: chunk {chunk_idx + 1} of {total_chunks}")
+
+                w_end = min(total_words, w_start + chunk_word_size)
+                chunk_str = " ".join(words[w_start:w_end])
+
+                # Tokenize ONLY this chunk with max_length=512, truncation=True
+                # This guarantees no sequence length warnings and strict <= 512 token limit
+                chunk_enc = tokenizer(
+                    chunk_str,
+                    return_tensors="pt",
+                    max_length=max_chunk_tokens,
+                    truncation=True,
+                )
+                chunk_input_ids = chunk_enc.input_ids
+                chunk_len = chunk_input_ids.size(1)
+
+                if chunk_len <= 1:
+                    continue
+
+                if chunk_idx == 0:
+                    trg_len = chunk_len
+                else:
+                    overlap_tokens = min(64, chunk_len // 2)
+                    trg_len = max(1, chunk_len - overlap_tokens)
 
                 target_ids = chunk_input_ids.clone()
-                # Mask out tokens in overlap region that were already evaluated
-                target_ids[:, :-trg_len] = -100
+                # Mask out tokens in overlap region already evaluated
+                if trg_len < chunk_len:
+                    target_ids[:, :-trg_len] = -100
 
                 outputs = model(chunk_input_ids, labels=target_ids)
                 neg_log_likelihood = outputs.loss
 
-                logits = outputs.logits  # (1, chunk_len, vocab_size)
+                logits = outputs.logits
                 shift_logits = logits[..., :-1, :].contiguous()
                 shift_labels = chunk_input_ids[..., 1:].contiguous()
 
                 # Calculate per-token log-rank for the target slice
-                slice_offset = chunk_input_ids.size(1) - trg_len
+                slice_offset = chunk_len - trg_len
                 for t_idx in range(slice_offset, shift_labels.size(1)):
                     target_token = shift_labels[0, t_idx].item()
                     step_logits = shift_logits[0, t_idx]
                     target_logit = step_logits[target_token].item()
-                    # Count tokens with higher logit
                     rank = (step_logits > target_logit).sum().item() + 1
-                    log_ranks.append(math.log(rank))
+                    total_log_rank += math.log(rank)
+                    count_log_rank += 1
 
-                nlls.append(neg_log_likelihood.item() * trg_len)
-                prev_end_loc = end_loc
-                if end_loc == seq_len:
+                total_nll += neg_log_likelihood.item() * trg_len
+                total_evaluated_tokens += trg_len
+
+                del chunk_enc, chunk_input_ids, target_ids, outputs, logits, shift_logits, shift_labels
+                if (chunk_idx + 1) % 5 == 0:
+                    gc.collect()
+
+                if w_end >= total_words:
                     break
 
-            total_evaluated_tokens = max(1, sum(1 for _ in log_ranks))
-            doc_ppl = math.exp(min(20.0, sum(nlls) / total_evaluated_tokens))
-            mean_log_rank = sum(log_ranks) / len(log_ranks) if log_ranks else 0.0
+            doc_ppl = (
+                math.exp(min(20.0, total_nll / max(1, total_evaluated_tokens)))
+                if total_evaluated_tokens > 0
+                else 1000.0
+            )
+            mean_log_rank = (
+                total_log_rank / max(1, count_log_rank)
+                if count_log_rank > 0
+                else 0.0
+            )
 
             # 2. Per-Sentence Perplexity and Burstiness
             s_list = sentences or [text]
             sentence_perplexities: List[float] = []
 
-            for s in s_list:
+            for s_idx, s in enumerate(s_list):
+                if cancel_check and cancel_check():
+                    break
                 s_strip = s.strip()
                 if len(s_strip.split()) < 3:
                     continue
-                s_enc = tokenizer(s_strip, return_tensors="pt")
+                s_enc = tokenizer(
+                    s_strip,
+                    return_tensors="pt",
+                    max_length=max_chunk_tokens,
+                    truncation=True,
+                )
                 s_ids = s_enc.input_ids
                 if s_ids.size(1) <= 1:
                     continue
@@ -173,6 +232,10 @@ def compute_lm_features(
                 s_loss = s_out.loss.item()
                 s_ppl = math.exp(min(20.0, s_loss))
                 sentence_perplexities.append(s_ppl)
+
+                del s_enc, s_ids, s_out
+                if (s_idx + 1) % 50 == 0:
+                    gc.collect()
 
             # Burstiness = Standard Deviation of Sentence Perplexities
             if len(sentence_perplexities) > 1:

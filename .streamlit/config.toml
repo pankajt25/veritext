@@ -1,6 +1,10 @@
 [server]
 headless = true
 maxUploadSize = 20
+fileWatcherType = "none"
+
+[client]
+toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false

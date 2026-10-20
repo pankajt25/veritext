@@ -32,6 +32,10 @@ data/*.sqlite
 data/*.db
 data/my_previous/*
 !data/my_previous/README.md
+data/uploads/*
+!data/uploads/.gitkeep
+data/reports/*
+!data/reports/.gitkeep
 *.tmp
 
 # Environment variables

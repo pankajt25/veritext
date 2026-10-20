@@ -294,6 +294,65 @@ python -m veritext.checks code data/samples/checks_demo/code_demo/ --template da
 
 ---
 
+## Report Generator & Streamlit Web UI (Stage 6)
+
+Veritext Stage 6 consolidates all verification engines into an interactive Streamlit web application and a multi-format export pipeline generating **Full JSON**, **Standalone HTML**, and **Compact PDF** reports.
+
+### Launching the Streamlit Web Application
+
+Start the web UI locally:
+
+```bash
+streamlit run src/veritext/ui/app.py
+```
+
+Open your browser at `http://localhost:8501`.
+
+### Web UI Features & Navigation
+
+- **Document Ingestion**: Upload any `.docx`, `.pdf`, `.tex`, `.txt`, or `.md` file, or select from bundled sample documents (`data/samples/`).
+- **Sidebar Engine Controls**:
+  - **Offline Mode**: Enabled by default for fast, zero-network checks against your local library.
+  - **Online Search**: Queries Crossref, OpenAlex, arXiv, Semantic Scholar, and Wikipedia.
+  - **Semantic Vector Paraphrase Search**: Dense sentence embeddings using `all-MiniLM-L6-v2`.
+  - **AI Text Detection (Lite Mode)**: Causal LM perplexity analysis using `distilgpt2` and stylometry.
+  - **Optional RoBERTa Model**: Opt-in classifier enabled only when weights are pre-downloaded.
+  - **Similarity Threshold**: Fine-tune the minimum match sensitivity (default: 75%).
+- **Low-Resource Architecture**:
+  - Automatically truncates documents > 5,000 words with a prominent notification.
+  - Sequential analysis execution with real-time status indicators.
+  - Garbage collection (`gc.collect()`) after inference to free memory.
+  - Results cached in `st.session_state` so filtering or dismissing highlights never triggers re-runs.
+- **Tab Layout**:
+  - **Summary**: Key metrics, interactive score gauges (Plagiarism %, AI Probability %), and high-level findings summary.
+  - **Highlighted Document**: Safe HTML render of original text with colour-blind accessible highlight borders, hover tooltips, highlight filter checkboxes, and an interactive dismissal manager to ignore false positives.
+  - **Sources**: Ranked table of matched sources with overlap percentages and character counts.
+  - **AI Analysis**: Document-level AI score, confidence rating, stylometric drivers, and top AI-like sentences table.
+  - **Integrity**: Granular breakdown of formatting anomalies, citation discrepancies, and uncited assertions.
+  - **Download**: One-click exports for `.json`, standalone `.html`, and `.pdf` reports.
+
+### Consolidated Report CLI
+
+Generate JSON, HTML, and PDF reports directly from the terminal:
+
+```bash
+# Offline analysis (Local library + Integrity checks)
+python -m veritext.report data/samples/plagiarism_demo/copied_doc.txt
+
+# Full multi-engine analysis with AI text detection and dense semantic matching
+python -m veritext.report data/samples/ai_demo/ai_sample_1.txt --ai --semantic
+
+# Specify custom output directory (default: data/reports)
+python -m veritext.report data/samples/sample_academic.txt --out-dir output/
+```
+
+### Privacy & Offline Guarantees
+
+- **No Remote Dependencies**: Standalone HTML reports embed all styles and run 100% offline without remote CDNs or web fonts.
+- **Data Isolation**: Uploaded files (`data/uploads/`) and generated reports (`data/reports/`) are strictly gitignored and never committed or transmitted externally.
+
+---
+
 ## Limitations and Responsible Use
 
 > [!WARNING]

@@ -4,6 +4,7 @@ import html
 from pathlib import Path
 from typing import Optional, Set, Union
 
+from veritext.report.dashboard import generate_paragraph_heat_strip, render_heat_strip_html
 from veritext.report.highlight import render_highlighted_html, render_legend_html
 from veritext.report.models import FullReport
 
@@ -192,6 +193,122 @@ def export_report_html(
     </div>
         """
 
+    # 6b. Paragraph Multi-Signal Heat Strip
+    heat_strip_data = generate_paragraph_heat_strip(
+        report.original_text,
+        similarity=report.similarity,
+        ai_detect=report.ai_detect,
+        integrity=report.integrity,
+        review_session=report.metadata.get("review_session"),
+    )
+    heat_strip_section = f"""
+    <div class="section card">
+      <h2>Paragraph Multi-Signal Heat Strip</h2>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:12px;">
+        Side-by-side view of similarity overlap, AI probability, and integrity flags per paragraph.
+      </p>
+      {render_heat_strip_html(heat_strip_data)}
+    </div>
+    """
+
+    # 6c. Instructor Review & Rubric Section
+    rubric_section = ""
+    rev_session = report.metadata.get("review_session")
+    rubric_data = report.metadata.get("rubric") or (rev_session.get("rubric") if isinstance(rev_session, dict) else (getattr(rev_session, "rubric", None) if rev_session else None))
+    if rubric_data:
+        r_dict = rubric_data if isinstance(rubric_data, dict) else (rubric_data.to_dict() if hasattr(rubric_data, "to_dict") else {})
+        r_name = html.escape(r_dict.get("name", "Academic Integrity Rubric"))
+        r_score = r_dict.get("total_score", 0)
+        r_max = r_dict.get("max_possible", 16)
+        r_pct = r_dict.get("percentage", 0.0)
+        r_comment = html.escape(r_dict.get("overall_comment", ""))
+
+        score_rows = []
+        for crit_id, sc in r_dict.get("scores", {}).items():
+            s_val = sc.get("score", 0) if isinstance(sc, dict) else getattr(sc, "score", 0)
+            s_comm = html.escape(sc.get("comment", "") if isinstance(sc, dict) else getattr(sc, "comment", ""))
+            crit_name = html.escape(crit_id.replace("_", " ").title())
+            score_rows.append(
+                f"<tr><td><strong>{crit_name}</strong></td><td>{s_val} / 4</td><td>{s_comm or '—'}</td></tr>"
+            )
+        score_tbody = "".join(score_rows)
+
+        rubric_section = f"""
+    <div class="section card">
+      <h2>Instructor Rubric Assessment: {r_name}</h2>
+      <div style="display:flex; gap:16px; margin-bottom:14px;">
+        <div style="background:rgba(0,0,0,0.02); padding:10px 16px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Total Score</div>
+          <div style="font-size:1.3rem; font-weight:700;">{r_score} / {r_max} ({r_pct:.1f}%)</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            <th style="width: 100px;">Score</th>
+            <th>Reviewer Comments</th>
+          </tr>
+        </thead>
+        <tbody>
+          {score_tbody}
+        </tbody>
+      </table>
+      {f'<div style="margin-top:10px; font-size:0.9rem;"><strong>Overall Review Comments:</strong> {r_comment}</div>' if r_comment else ''}
+    </div>
+        """
+
+    # 6d. Grammar & Style Feedback Section
+    style_section = ""
+    style_meta = report.metadata.get("style")
+    if style_meta:
+        s_dict = style_meta if isinstance(style_meta, dict) else (style_meta.to_dict() if hasattr(style_meta, "to_dict") else {})
+        metrics = s_dict.get("metrics") or {}
+        findings = s_dict.get("findings") or []
+        flesch = metrics.get("flesch_reading_ease", 0.0)
+        fog = metrics.get("gunning_fog", 0.0)
+        ease_label = html.escape(metrics.get("reading_ease_label", "Standard"))
+        level = html.escape(metrics.get("reading_level", "College"))
+        lt_status = s_dict.get("engine_status", {}).get("languagetool", {})
+        lt_note = html.escape(lt_status.get("reason", "Built-in rules active."))
+
+        style_rows = []
+        for sf in findings[:15]:
+            sf_chk = html.escape(sf.get("check", "style").replace("style_", "").replace("_", " ").title())
+            sf_msg = html.escape(sf.get("message", ""))
+            sf_off = f"{sf.get('start', 0)}:{sf.get('end', 0)}"
+            style_rows.append(f"<tr><td>{sf_chk}</td><td>{sf_off}</td><td>{sf_msg}</td></tr>")
+        style_tbody = "".join(style_rows) if style_rows else '<tr><td colspan="3" style="text-align:center; color:#64748b;">No style or grammar suggestions.</td></tr>'
+
+        style_section = f"""
+    <div class="section card">
+      <h2>Grammar & Style Feedback (Informational)</h2>
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:14px;">
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Flesch Reading Ease</div>
+          <div style="font-size:1.3rem; font-weight:700;">{flesch:.1f} ({ease_label})</div>
+        </div>
+        <div style="flex:1; min-width:140px; background:rgba(0,0,0,0.02); padding:10px; border-radius:4px;">
+          <div style="font-size:0.8rem; color:var(--text-muted);">Gunning Fog Index</div>
+          <div style="font-size:1.3rem; font-weight:700;">{fog:.1f} ({level})</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 140px;">Rule</th>
+            <th style="width: 90px;">Offsets</th>
+            <th>Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {style_tbody}
+        </tbody>
+      </table>
+      <div style="margin-top:8px; font-size:0.8rem; color:var(--text-muted);"><strong>Engine Status:</strong> {lt_note}</div>
+    </div>
+        """
+
     # 7. Settings list
     settings_items = [f"<li><strong>{html.escape(str(k))}:</strong> {html.escape(str(v))}</li>" for k, v in report.settings.items()]
     settings_html = f"<ul>{''.join(settings_items)}</ul>" if settings_items else "<p>Default settings applied.</p>"
@@ -347,6 +464,9 @@ def export_report_html(
 
     {profile_html}
     {plan_html}
+    {rubric_section}
+    {heat_strip_section}
+    {style_section}
 
     <div class="section card">
       <h2>Highlighted Document View</h2>

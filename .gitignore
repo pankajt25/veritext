@@ -39,6 +39,10 @@ data/reports/*
 data/class_repository/*
 !data/class_repository/.gitkeep
 !data/class_repository/README.md
+data/reviews/*
+!data/reviews/.gitkeep
+data/config/api_keys.json
+data/api_jobs.sqlite
 *.tmp
 
 # Environment variables

@@ -16,9 +16,26 @@ from veritext.batch import run_batch_analysis
 from veritext.classrepo.repo import ClassRepositoryManager
 from veritext.ingest.pipeline import load_document
 from veritext.planner import load_limits_config, make_plan
+from veritext.report.dashboard import (
+    generate_paragraph_heat_strip,
+    generate_portfolio_csv,
+    render_heat_strip_html,
+    render_portfolio_html,
+)
 from veritext.report.highlight import render_highlighted_html, render_legend_html
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
+from veritext.review import (
+    FindingReview,
+    ReviewSession,
+    ReviewStatus,
+    RubricAssessment,
+    RubricScore,
+    format_report_for_view,
+    get_default_criteria,
+    load_review_session,
+    save_review_session,
+)
 from veritext.similarity.filters import (
     ExclusionFilters,
     add_to_allowlist,
@@ -26,6 +43,7 @@ from veritext.similarity.filters import (
     recalculate_report_filters,
     remove_from_allowlist,
 )
+from veritext.style import check_languagetool_support, lint_style
 from veritext.ui.services import prepare_document_and_plan, run_pipeline
 
 ROBERTA_MODEL_DIR = Path("data/models/roberta-chatgpt")
@@ -47,6 +65,10 @@ def init_session_state():
         st.session_state["cancel_requested"] = False
     if "batch_result" not in st.session_state:
         st.session_state["batch_result"] = None
+    if "review_session" not in st.session_state:
+        st.session_state["review_session"] = None
+    if "perspective_view" not in st.session_state:
+        st.session_state["perspective_view"] = "Instructor View"
 
 
 def main():
@@ -337,6 +359,16 @@ def main():
         ex_allowlist = st.checkbox("Exclude allowlisted phrases", value=False)
 
         st.markdown("---")
+        st.subheader("5. Perspective View")
+        perspective_view = st.radio(
+            "Perspective Mode",
+            ["Instructor View", "Student View"],
+            index=0 if st.session_state.get("perspective_view") == "Instructor View" else 1,
+            help="Student View emphasizes developmental feedback and masks ranking/adversarial language.",
+        )
+        st.session_state["perspective_view"] = perspective_view
+
+        st.markdown("---")
 
     # Disclaimer Banner
     st.info(
@@ -515,9 +547,12 @@ def main():
         return
 
     # Tabs layout
-    tab_summary, tab_doc, tab_sources, tab_ai, tab_integrity, tab_download = st.tabs([
+    tab_summary, tab_dashboard, tab_doc, tab_review, tab_style, tab_sources, tab_ai, tab_integrity, tab_download = st.tabs([
         "📊 Summary & Plan",
+        "📈 Multi-Signal Dashboard",
         "📄 Highlighted Document",
+        "📝 Review & Rubric",
+        "✍️ Style & Grammar",
         "📚 Sources & Exclusions",
         "🤖 AI Analysis",
         "🛡️ Integrity & Text Spinners",
@@ -570,6 +605,126 @@ def main():
             c2.markdown(f"**Total Characters:** {prof.get('character_count', 0):,}")
             c3.markdown(f"**Estimated Pages:** {prof.get('page_estimate', 1):,}")
             c4.markdown(f"**Size Class:** {prof.get('size_class', 'medium').upper()}")
+
+    # 1b. TAB: MULTI-SIGNAL DASHBOARD
+    with tab_dashboard:
+        st.subheader("Paragraph Multi-Signal Heat Strip")
+        st.caption("Side-by-side visualization of similarity overlap, AI likelihood, and integrity flags per paragraph.")
+        heat_strip_data = generate_paragraph_heat_strip(
+            report.original_text,
+            similarity=report.similarity,
+            ai_detect=report.ai_detect,
+            integrity=report.integrity,
+            review_session=st.session_state.get("review_session"),
+        )
+        components.html(render_heat_strip_html(heat_strip_data), height=550, scrolling=True)
+
+    # 1c. TAB: REVIEW & RUBRIC
+    with tab_review:
+        st.subheader("Instructor Review & Rubric Scoring")
+
+        if st.session_state.get("review_session") is None:
+            st.session_state["review_session"] = ReviewSession(
+                report_id=report.document_name or "current_doc",
+                document_name=report.document_name,
+                author="Instructor",
+            )
+        rev_session: ReviewSession = st.session_state["review_session"]
+
+        st.markdown("#### 1. Standard Academic Integrity Rubric")
+        criteria = get_default_criteria()
+        rubric_scores = {}
+        r_cols = st.columns(2)
+        for idx, crit in enumerate(criteria):
+            with r_cols[idx % 2]:
+                st.markdown(f"**{crit.name}** (0–4)")
+                st.caption(crit.description)
+                existing_s = rev_session.rubric.scores.get(crit.id).score if rev_session.rubric and crit.id in rev_session.rubric.scores else 3
+                score_val = st.slider(f"Score: {crit.name}", 0, 4, int(existing_s), key=f"rubric_{crit.id}")
+                comm_val = st.text_input(f"Notes for {crit.name}", key=f"rubric_comm_{crit.id}")
+                rubric_scores[crit.id] = RubricScore(criterion_id=crit.id, score=score_val, comment=comm_val)
+
+        overall_rubric_comm = st.text_area("Overall Instructor Rubric Feedback", value=rev_session.rubric.overall_comment if rev_session.rubric else "")
+        rev_session.rubric = RubricAssessment(
+            name="Standard Academic Integrity & Writing Rubric",
+            scores=rubric_scores,
+            overall_comment=overall_rubric_comm,
+        )
+        report.metadata["rubric"] = rev_session.rubric.to_dict()
+        report.metadata["review_session"] = rev_session.to_dict()
+
+        st.info(f"🏆 Total Rubric Score: **{rev_session.rubric.total_score} / {rev_session.rubric.max_possible} ({rev_session.rubric.percentage:.1f}%)**")
+
+        st.markdown("---")
+        st.markdown("#### 2. Item Review Decisions & Annotations")
+        st.caption("Set status to 'Ignored' for false positives; ignored items are excluded from similarity calculation without re-running engines.")
+
+        if report.highlights:
+            for h in report.highlights[:15]:
+                rev_c1, rev_c2, rev_c3 = st.columns([2, 2, 4])
+                rev_c1.markdown(f"**{h.category.upper()}** (chars {h.start}:{h.end})")
+                current_rev = rev_session.get_review(h.id)
+                curr_status = current_rev.status if current_rev else ("ignored" if h.id in st.session_state["ignored_spans"] else "needs_discussion")
+
+                new_status = rev_c2.selectbox(
+                    "Decision",
+                    ["needs_discussion", "accepted", "ignored"],
+                    index=["needs_discussion", "accepted", "ignored"].index(curr_status),
+                    key=f"rev_status_{h.id}",
+                )
+                new_comm = rev_c3.text_input("Instructor Comment", value=current_rev.comment if current_rev else "", key=f"rev_comm_{h.id}")
+
+                rev_session.set_review(
+                    target_id=h.id,
+                    status=new_status,
+                    comment=new_comm,
+                    start=h.start,
+                    end=h.end,
+                )
+                if new_status == "ignored" and h.id not in st.session_state["ignored_spans"]:
+                    st.session_state["ignored_spans"].add(h.id)
+                    st.rerun()
+                elif new_status != "ignored" and h.id in st.session_state["ignored_spans"]:
+                    st.session_state["ignored_spans"].discard(h.id)
+                    st.rerun()
+
+        if st.button("💾 Persist Review Session to Disk", key="btn_save_review_session"):
+            p = save_review_session(rev_session)
+            st.success(f"Review session successfully persisted to `{p}`!")
+
+    # 1d. TAB: STYLE & GRAMMAR
+    with tab_style:
+        st.subheader("Grammar & Style Feedback (Informational)")
+        st.caption("Style rules provide formative writing suggestions with info-level severity and never alter similarity or AI scores.")
+
+        style_res = lint_style(report.clean_text or report.original_text)
+        report.metadata["style"] = style_res.to_dict()
+
+        if style_res.metrics:
+            sm = style_res.metrics
+            sm1, sm2, sm3, sm4 = st.columns(4)
+            sm1.metric("Flesch Reading Ease", f"{sm.flesch_reading_ease:.1f}", sm.reading_ease_label)
+            sm2.metric("Gunning Fog Index", f"{sm.gunning_fog:.1f}", sm.reading_level)
+            sm3.metric("Total Sentences", f"{sm.total_sentences:,}")
+            sm4.metric("Complex Words", f"{sm.complex_words:,}", f"{(sm.complex_words / max(1, sm.total_words)) * 100:.1f}%")
+
+        st.markdown("---")
+        lt_stat = style_res.engine_status.get("languagetool", {})
+        if not lt_stat.get("available"):
+            st.info(f"ℹ️ **Optional Engine Status:** {lt_stat.get('reason', 'Built-in rules active.')}")
+
+        st.markdown("#### Formative Writing Suggestions")
+        if not style_res.findings:
+            st.success("No stylistic issues or grammatical redundancies detected!")
+        else:
+            style_table = []
+            for sf in style_res.findings[:25]:
+                style_table.append({
+                    "Rule": sf.check.replace("style_", "").replace("_", " ").title(),
+                    "Offsets": f"{sf.start}:{sf.end}",
+                    "Suggestion": sf.message,
+                })
+            st.dataframe(style_table, use_container_width=True, hide_index=True)
 
     # 2. TAB: HIGHLIGHTED DOCUMENT
     with tab_doc:

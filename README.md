@@ -23,8 +23,9 @@ veritext/
 ├── data/
 │   ├── cache/                    # SQLite HTTP and fulltext cache (gitignored)
 │   ├── class_repository/         # Local class submissions & fingerprints (gitignored)
-│   ├── config/                   # Tortured phrases, allowlist, and runtime limits
+│   ├── config/                   # Tortured phrases, allowlist, limits, and rubric config
 │   ├── references/               # Local reference library documents
+│   ├── reviews/                  # Review sessions and annotations (gitignored)
 │   └── samples/                  # Sample academic documents (.docx, .pdf, .tex, .txt, .md)
 ├── docs/                         # Project documentation and stage plans
 ├── src/
@@ -40,7 +41,10 @@ veritext/
 │       ├── checks/               # Integrity checks, text-spinner detection (Cabanac et al. 2021)
 │       ├── classrepo/            # Local class repository manager & privacy modes
 │       ├── batch/                # Pairwise winnowing collusion matrix & heatmap generator
-│       ├── report/               # Report and PDF generation
+│       ├── review/               # Review states, student/instructor views, and rubric scoring
+│       ├── style/                # Rule linter (passive voice, repetitions, Flesch, Gunning Fog)
+│       ├── api/                  # Local REST API service (FastAPI, SQLite single-worker queue)
+│       ├── report/               # Report, PDF export, and combined multi-signal dashboard
 │       └── ui/                   # Streamlit interface with batch & exclusion tools
 ├── tests/                        # Automated unit and integration test suite
 │   └── fixtures/                 # Mock API response fixtures
@@ -385,6 +389,34 @@ python -m veritext.classrepo delete cs101
 # Batch pairwise collusion matrix & self-contained HTML heatmap
 python -m veritext.batch path/to/cohort/ --threshold 0.30
 ```
+
+### Stage 6C Review, Style, Dashboard & Local API
+
+```bash
+# Start the local REST API server (bound to 127.0.0.1:8600 by default)
+python -m veritext.api serve --port 8600
+
+# Create and manage hashed API keys
+python -m veritext.api create-key --name "grading_station"
+python -m veritext.api list-keys
+python -m veritext.api revoke-key "grading_station"
+
+# Submit document for asynchronous analysis
+curl -X POST http://127.0.0.1:8600/submit \
+  -H "X-API-Key: vt_live_..." \
+  -F "file=@student_essay.pdf"
+
+# Inspect job progress and retrieve reports
+curl -X GET http://127.0.0.1:8600/jobs/<job_id> -H "X-API-Key: vt_live_..."
+curl -X GET http://127.0.0.1:8600/reports/<report_id>.html -H "X-API-Key: vt_live_..." -o report.html
+```
+
+- **Instructor Review Workflow**: Set review states (*Accepted*, *Ignored*, *Needs discussion*) with inline annotations. Ignored findings are instantly excluded from similarity calculations without re-running engines.
+- **Student View vs. Instructor View**: Student view replaces ranking metrics with developmental guidance (*"Add a citation here"*, *"Rewrite in your own words"*); neither view makes accusations.
+- **Rubric Assessment**: Configurable JSON rubric (`data/config/rubric_default.json`) with a 0–4 scale across Originality, Citation Quality, Use of Sources, and Writing Clarity, exportable to JSON, HTML, and PDF.
+- **Grammar & Style Feedback**: Built-in rule linter for passive voice, repeated words, sentence length (>35 words), filler phrases, weak transitions, Flesch Reading Ease, and Gunning Fog index.
+- **Combined Dashboard**: Side-by-side paragraph heat strip (similarity, AI likelihood, integrity badges) and sortable/filterable cohort portfolio table with offline CSV export.
+- **Documentation**: See [docs/API.md](docs/API.md) for curl examples and LMS integration notes, [docs/FEATURES.md](docs/FEATURES.md) for a commercial platform comparison, and [docs/stage6c.md](docs/stage6c.md) for architectural details.
 
 ### Class Repository Privacy & Data Rights
 

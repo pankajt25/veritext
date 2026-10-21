@@ -340,6 +340,62 @@ def export_report_pdf(
                 break
         pdf.ln(5)
 
+    # 8b. Instructor Rubric Assessment (if present)
+    rubric_data = report.metadata.get("rubric") or (
+        report.metadata.get("review_session", {}).get("rubric")
+        if isinstance(report.metadata.get("review_session"), dict)
+        else None
+    )
+    if rubric_data:
+        r_dict = rubric_data if isinstance(rubric_data, dict) else (rubric_data.to_dict() if hasattr(rubric_data, "to_dict") else {})
+        r_name = sanitize_text_for_pdf(r_dict.get("name", "Academic Integrity Rubric"))
+        r_score = r_dict.get("total_score", 0)
+        r_max = r_dict.get("max_possible", 16)
+        r_pct = r_dict.get("percentage", 0.0)
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, f"Instructor Rubric Assessment: {r_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(241, 245, 249)
+        pdf.set_text_color(51, 65, 85)
+        pdf.cell(60, 6, "Criterion", border=1, fill=True)
+        pdf.cell(30, 6, "Score", border=1, fill=True)
+        pdf.cell(100, 6, "Reviewer Comments", border=1, fill=True)
+        pdf.ln(6)
+
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(15, 23, 42)
+        for crit_id, sc in r_dict.get("scores", {}).items():
+            c_name = sanitize_text_for_pdf(crit_id.replace("_", " ").title())
+            s_val = sc.get("score", 0) if isinstance(sc, dict) else getattr(sc, "score", 0)
+            s_comm = sanitize_text_for_pdf(sc.get("comment", "") if isinstance(sc, dict) else getattr(sc, "comment", ""))[:65]
+            pdf.cell(60, 5, c_name, border=1)
+            pdf.cell(30, 5, f"{s_val} / 4", border=1)
+            pdf.cell(100, 5, s_comm or "-", border=1)
+            pdf.ln(5)
+
+        pdf.set_font("Helvetica", "B", 8.5)
+        pdf.cell(190, 5, f"Overall Rubric Score: {r_score} / {r_max} ({r_pct:.1f}%)", border=1)
+        pdf.ln(7)
+
+    # 8c. Grammar & Style Feedback (if present)
+    style_meta = report.metadata.get("style")
+    if style_meta:
+        s_dict = style_meta if isinstance(style_meta, dict) else (style_meta.to_dict() if hasattr(style_meta, "to_dict") else {})
+        metrics = s_dict.get("metrics") or {}
+        flesch = metrics.get("flesch_reading_ease", 0.0)
+        fog = metrics.get("gunning_fog", 0.0)
+        ease_label = sanitize_text_for_pdf(metrics.get("reading_ease_label", "Standard"))
+        level = sanitize_text_for_pdf(metrics.get("reading_level", "College"))
+
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 5, "Grammar & Style Feedback (Informational)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(71, 85, 105)
+        pdf.cell(0, 4, f"Flesch Reading Ease: {flesch:.1f} ({ease_label})  |  Gunning Fog Index: {fog:.1f} ({level})", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(3)
+
     # 9. Methodology & Settings
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(0, 5, "Methodology & Engine Settings", new_x=XPos.LMARGIN, new_y=YPos.NEXT)

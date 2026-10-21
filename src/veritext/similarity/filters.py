@@ -116,6 +116,8 @@ class ExclusionFilters:
     academic_phrases: List[str] = field(
         default_factory=lambda: list(COMMON_ACADEMIC_PHRASES)
     )
+    exclude_ignored_reviews: bool = True
+    ignored_span_keys: Set[str] = field(default_factory=set)
 
     def to_list(self) -> List[str]:
         """Returns readable names of all currently active exclusion filters."""
@@ -132,11 +134,27 @@ class ExclusionFilters:
             active.append(f"Allowlist ({len(self.allowlist)} phrase(s))")
         if self.exclude_academic_phrases:
             active.append("Common academic phrases")
+        if self.exclude_ignored_reviews and self.ignored_span_keys:
+            active.append(f"Ignored review items ({len(self.ignored_span_keys)})")
         return active
 
 
 def is_span_excluded(span: MatchSpan, filters: ExclusionFilters) -> bool:
     """Checks whether a single MatchSpan is excluded by active filters."""
+    # 0. Exclude Ignored Reviews
+    if filters.exclude_ignored_reviews and filters.ignored_span_keys:
+        span_id = span.metadata.get("id") if span.metadata else None
+        span_key1 = f"span_{span.doc_start}_{span.doc_end}"
+        span_key2 = f"{span.doc_start}_{span.doc_end}"
+        span_key3 = f"{span.source_id}:{span.doc_start}:{span.doc_end}"
+        if (
+            (span_id and span_id in filters.ignored_span_keys)
+            or span_key1 in filters.ignored_span_keys
+            or span_key2 in filters.ignored_span_keys
+            or span_key3 in filters.ignored_span_keys
+        ):
+            return True
+
     span_len = span.doc_end - span.doc_start
     m_text = (span.matched_text or "").strip()
     m_text_lower = m_text.lower()
@@ -335,4 +353,31 @@ def recalculate_report_filters(report: Any, filters: ExclusionFilters) -> Any:
         summary_parts.append(f"Integrity: {high_cnt} high, {warn_cnt} warning, {info_cnt} info finding(s)")
 
     report.summary = " | ".join(summary_parts)
+    return report
+
+
+def recalculate_similarity_with_review(
+    similarity: SimilarityResult,
+    clean_text: str,
+    review_session: Any = None,
+    filters: Optional[ExclusionFilters] = None,
+) -> SimilarityResult:
+    """Recalculates similarity taking into account both exclusion filters and reviewed/ignored spans."""
+    active_filters = filters or ExclusionFilters()
+    if review_session:
+        if hasattr(review_session, "get_ignored_target_ids"):
+            ignored_ids = review_session.get_ignored_target_ids()
+        elif isinstance(review_session, dict):
+            reviews = review_session.get("reviews", {})
+            ignored_ids = {
+                k
+                for k, v in reviews.items()
+                if (isinstance(v, dict) and v.get("status") == "ignored")
+            }
+        else:
+            ignored_ids = set()
+        active_filters.ignored_span_keys.update(ignored_ids)
+
+    return recalculate_similarity(similarity, clean_text, active_filters)
+
     return report

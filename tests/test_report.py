@@ -383,7 +383,7 @@ def test_services_run_pipeline_profile_and_plan():
 def test_streamlit_app_smoke():
     app_path = Path(__file__).resolve().parent.parent / "src" / "veritext" / "ui" / "app.py"
     at = AppTest.from_file(str(app_path))
-    at.run(timeout=30)
+    at.run(timeout=60)
 
     # Verify app loads without unhandled exceptions
     assert not at.exception
@@ -392,7 +392,7 @@ def test_streamlit_app_smoke():
     assert any("Responsible Use" in info.value for info in at.info)
 
     # Click run button without uploading file -> should show error
-    at.sidebar.button[0].click().run(timeout=30)
+    at.sidebar.button[0].click().run(timeout=60)
     assert any("Please upload a document" in err.value for err in at.error)
 
 

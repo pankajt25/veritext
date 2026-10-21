@@ -1,0 +1,138 @@
+{
+  "name": "Standard Academic Integrity & Writing Rubric",
+  "version": "1.0",
+  "criteria": [
+    {
+      "id": "originality",
+      "name": "Originality",
+      "description": "Degree to which the work presents independent thought and authentic student voice rather than copied material.",
+      "max_score": 4,
+      "levels": [
+        {
+          "score": 0,
+          "label": "Unacceptable",
+          "descriptor": "Extensive unoriginal or unattributed text spanning major portions of the document."
+        },
+        {
+          "score": 1,
+          "label": "Deficient",
+          "descriptor": "Substantial reliance on external sources with minimal original synthesis or independent thinking."
+        },
+        {
+          "score": 2,
+          "label": "Developing",
+          "descriptor": "Moderate original thought present, but significant reliance on source passages without transformation."
+        },
+        {
+          "score": 3,
+          "label": "Proficient",
+          "descriptor": "Largely original voice and ideas throughout; minor, isolated unoriginal phrasing."
+        },
+        {
+          "score": 4,
+          "label": "Exemplary",
+          "descriptor": "Consistently original work reflecting independent critical thinking and a unique authentic perspective."
+        }
+      ]
+    },
+    {
+      "id": "citation_quality",
+      "name": "Citation Quality",
+      "description": "Accuracy, completeness, and consistency of references, citations, and attribution.",
+      "max_score": 4,
+      "levels": [
+        {
+          "score": 0,
+          "label": "Unacceptable",
+          "descriptor": "No citations provided or references appear fabricated or entirely absent."
+        },
+        {
+          "score": 1,
+          "label": "Deficient",
+          "descriptor": "Infrequent, highly inconsistent, or severely incomplete citation details throughout."
+        },
+        {
+          "score": 2,
+          "label": "Developing",
+          "descriptor": "Basic citations present, but missing key details (page numbers, years) or improperly formatted."
+        },
+        {
+          "score": 3,
+          "label": "Proficient",
+          "descriptor": "Accurate, consistent citations following standard academic style with minor formatting lapses."
+        },
+        {
+          "score": 4,
+          "label": "Exemplary",
+          "descriptor": "Flawless, exhaustive citation and bibliographic attribution adhering strictly to standards."
+        }
+      ]
+    },
+    {
+      "id": "use_of_sources",
+      "name": "Use of Sources",
+      "description": "How effectively external scholarship is integrated, paraphrased, critiqued, and synthesized.",
+      "max_score": 4,
+      "levels": [
+        {
+          "score": 0,
+          "label": "Unacceptable",
+          "descriptor": "Sources misused, misunderstood, or dropped in without synthesis or context."
+        },
+        {
+          "score": 1,
+          "label": "Deficient",
+          "descriptor": "Superficial stringing together of quotations or patchwriting with minimal framing."
+        },
+        {
+          "score": 2,
+          "label": "Developing",
+          "descriptor": "Sources quoted accurately but integrated clumsily into arguments; limited critical evaluation."
+        },
+        {
+          "score": 3,
+          "label": "Proficient",
+          "descriptor": "Sources effectively summarized, accurately paraphrased, and logically integrated to support claims."
+        },
+        {
+          "score": 4,
+          "label": "Exemplary",
+          "descriptor": "Masterful synthesis and critical interrogation of diverse scholarship, enriching all core arguments."
+        }
+      ]
+    },
+    {
+      "id": "writing_clarity",
+      "name": "Writing Clarity",
+      "description": "Clarity of prose, structure, conciseness, academic tone, and avoidance of convoluted or tortured phrasing.",
+      "max_score": 4,
+      "levels": [
+        {
+          "score": 0,
+          "label": "Unacceptable",
+          "descriptor": "Prose is incoherent, disjointed, or obscures core meaning throughout."
+        },
+        {
+          "score": 1,
+          "label": "Deficient",
+          "descriptor": "Pervasive structural errors, tortuous syntax, or confusing word substitutions impair readability."
+        },
+        {
+          "score": 2,
+          "label": "Developing",
+          "descriptor": "Generally understandable, but hampered by passive constructions, wordiness, or awkward transitions."
+        },
+        {
+          "score": 3,
+          "label": "Proficient",
+          "descriptor": "Clear, organized, and fluent academic prose with appropriate vocabulary and logical transitions."
+        },
+        {
+          "score": 4,
+          "label": "Exemplary",
+          "descriptor": "Exceptionally lucid, concise, and eloquent writing that engages the reader effortlessly."
+        }
+      ]
+    }
+  ]
+}

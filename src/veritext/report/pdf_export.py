@@ -178,6 +178,20 @@ def export_report_pdf(
     pdf.cell(0, 6, "Executive Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 9)
     pdf.multi_cell(190, 4.5, sanitize_text_for_pdf(report.summary))
+
+    # Active Exclusion Filters
+    active_filters = (
+        report.settings.get("active_filters")
+        or (report.similarity.metadata.get("active_filters") if report.similarity and report.similarity.metadata else None)
+        or ["Standard exclusions (small matches <25 chars)"]
+    )
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(71, 85, 105)
+    pdf.cell(38, 4, "Active Exclusion Filters: ", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.multi_cell(152, 4, sanitize_text_for_pdf(", ".join(active_filters)))
+    pdf.ln(3)
     pdf.ln(5)
 
     # 4b. Document Profile & Plan Coverage

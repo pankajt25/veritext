@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from veritext.classrepo.repo import ClassRepositoryManager
 from veritext.fingerprint.index import FingerprintIndex
 from veritext.fingerprint.winnow import winnow
 from veritext.ingest.models import Document
@@ -11,6 +12,7 @@ from veritext.similarity.exact import find_exact_matches
 from veritext.similarity.models import SimilarityResult
 from veritext.similarity.scorer import compute_similarity_score
 from veritext.similarity.semantic import find_semantic_matches
+from veritext.sources.fulltext import FullTextRetriever
 from veritext.sources.models import SourceCandidate
 from veritext.sources.retrieval import find_candidates
 from veritext.sources.store import ReferenceStore
@@ -56,6 +58,31 @@ def check_document(
         max_sources=max_sources,
         store=ref_store,
     )
+
+    # Step 2b: Full-text open-access retrieval for top candidates
+    fetch_fulltext = opts.get("fetch_fulltext", use_online)
+    fulltexts_fetched = 0
+    if fetch_fulltext and candidates:
+        try:
+            max_ft = opts.get("max_fulltext_fetch", 10)
+            ft_retriever = FullTextRetriever(store=ref_store, index=fp_index, max_fetch_per_doc=max_ft)
+            candidates, fulltexts_fetched = ft_retriever.fetch_and_index_top_candidates(candidates)
+        except Exception as e:
+            logger.warning(f"Full-text retrieval step failed gracefully: {e}")
+
+    # Step 2c: Class repository candidate retrieval
+    class_name = opts.get("class_name")
+    show_names = opts.get("show_names", False)
+    if class_name:
+        try:
+            cmgr = ClassRepositoryManager()
+            c_cands, c_fps = cmgr.get_candidates(class_name, show_names=show_names)
+            for cc in c_cands:
+                candidates.append(cc)
+                if cc.id in c_fps:
+                    fp_index.add_fingerprints(cc.id, None, c_fps[cc.id])
+        except Exception as e:
+            logger.warning(f"Class repository '{class_name}' retrieval note: {e}")
 
     sources_map: Dict[str, SourceCandidate] = {c.id: c for c in candidates}
 
@@ -103,5 +130,6 @@ def check_document(
         min_match_chars=opts.get("min_match_chars", 25),
         anomalies=anomaly_dicts,
     )
+    result.metadata["fulltexts_fetched"] = fulltexts_fetched
 
     return result

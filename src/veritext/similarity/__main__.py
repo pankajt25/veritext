@@ -34,10 +34,28 @@ def main():
         help="Semantic similarity threshold (default: 0.75)",
     )
     parser.add_argument(
-        "--max-sources",
-        type=int,
-        default=30,
-        help="Maximum candidate sources to retrieve (default: 30)",
+        "--fetch-fulltext",
+        action="store_true",
+        default=None,
+        help="Fetch open-access full text for top matching candidates (on by default for online)",
+    )
+    parser.add_argument(
+        "--no-fetch-fulltext",
+        action="store_true",
+        help="Disable open-access full text retrieval",
+    )
+    parser.add_argument(
+        "--class",
+        dest="class_name",
+        type=str,
+        default=None,
+        help="Name of class repository to include in plagiarism check",
+    )
+    parser.add_argument(
+        "--show-names",
+        action="store_true",
+        default=False,
+        help="Show actual filenames instead of anonymised IDs for class repository submissions",
     )
     parser.add_argument(
         "--mode",
@@ -116,15 +134,25 @@ def main():
     print(f"Semantic: {sem_plan.coverage_description if sem_plan else 'disabled'}")
     print("Analyzing document structure, fingerprints, and semantics...")
 
+    # Determine full-text fetching policy
+    fetch_ft = False if args.offline else True
+    if args.fetch_fulltext:
+        fetch_ft = True
+    elif args.no_fetch_fulltext:
+        fetch_ft = False
+
     result = None
     try:
         result = check_document(
             document=doc,
             use_online=not args.offline,
             use_local=True,
-            max_sources=args.max_sources,
+            max_sources=30,
             similarity_threshold=args.threshold,
             options={
+                "fetch_fulltext": fetch_ft,
+                "class_name": args.class_name,
+                "show_names": args.show_names,
                 "word_ranges": sem_plan.word_ranges if (sem_plan and sem_plan.sampling_mode == "section_sampled") else None,
             },
         )
@@ -132,10 +160,13 @@ def main():
         print("\n\n⚠️ Similarity check interrupted by user (Ctrl+C).")
         return
 
+    fulltext_cnt = result.metadata.get("fulltexts_fetched", 0)
     print("\n" + "=" * 70)
     print(f"OVERALL SIMILARITY SCORE: {result.similarity_percentage:.1f}%")
     print(f"Characters Matched:       {result.matched_chars} / {result.total_clean_chars}")
     print(f"Total Match Spans:        {len(result.spans)}")
+    if fulltext_cnt > 0:
+        print(f"Full-Texts Fetched:       {fulltext_cnt} open-access paper(s)")
     if result.anomalies:
         print(f"Suspicious Anomalies:     {len(result.anomalies)} (homoglyphs / zero-width)")
     print("=" * 70)

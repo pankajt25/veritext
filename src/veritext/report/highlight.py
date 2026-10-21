@@ -50,6 +50,13 @@ CATEGORY_STYLES: Dict[str, Dict[str, str]] = {
         "label": "Self-Overlap",
         "desc": "Recycled text from user's prior work (solid blue underline)",
     },
+    "text spinner": {
+        "bg": "#ccfbf1",
+        "color": "#115e59",
+        "border": "2px dashed #0d9488",
+        "label": "Text Spinner",
+        "desc": "Suspected automated paraphrasing or tortured phrase (dashed teal underline)",
+    },
 }
 
 DEFAULT_STYLE = {

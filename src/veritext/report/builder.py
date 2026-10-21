@@ -149,6 +149,8 @@ def build_report(
                     cat = "citation issue"
                 elif f.check == "self_plagiarism":
                     cat = "self-overlap"
+                elif f.check == "spinner":
+                    cat = "text spinner"
                 else:
                     cat = f.check.replace("_", " ")
 
@@ -176,10 +178,14 @@ def build_report(
 
     # Construct high-level summary
     summary_parts = []
+    fulltexts_fetched = similarity.metadata.get("fulltexts_fetched", 0) if similarity and similarity.metadata else 0
     if similarity:
         sim_pct = similarity.similarity_percentage
         src_cnt = len(similarity.sources)
-        summary_parts.append(f"Plagiarism: {sim_pct:.1f}% similarity across {src_cnt} source(s)")
+        sim_summary = f"Plagiarism: {sim_pct:.1f}% similarity across {src_cnt} source(s)"
+        if fulltexts_fetched > 0:
+            sim_summary += f" ({fulltexts_fetched} full-text retrieved)"
+        summary_parts.append(sim_summary)
 
     if ai:
         ai_prob = getattr(ai, "overall_probability", getattr(ai, "ai_probability", None))
@@ -216,5 +222,6 @@ def build_report(
             "word_count": len(orig_text.split()),
             "character_count": len(orig_text),
             "total_highlights": len(span_items),
+            "fulltexts_fetched": fulltexts_fetched,
         },
     )

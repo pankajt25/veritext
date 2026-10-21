@@ -109,6 +109,25 @@ def export_report_html(
                 )
     integ_tbody = "".join(integ_rows) if integ_rows else '<tr><td colspan="4" style="text-align:center; color:#64748b;">No integrity anomalies detected.</td></tr>'
 
+    # 5b. Active Filters & Fulltext Count
+    active_filters = (
+        report.settings.get("active_filters")
+        or (report.similarity.metadata.get("active_filters") if report.similarity and report.similarity.metadata else None)
+        or ["Standard exclusions (small matches <25 chars)"]
+    )
+    filters_badges = "".join(
+        f'<span style="display:inline-block; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; margin-right:6px; margin-bottom:4px; font-size:0.85rem;">{html.escape(f)}</span>'
+        for f in active_filters
+    )
+    filters_html = f'<div style="margin-top:14px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:0.9rem;"><strong>Active Exclusion Filters:</strong><div style="margin-top:6px;">{filters_badges}</div></div>'
+
+    ft_count = (
+        report.metadata.get("fulltexts_fetched")
+        or (report.similarity.metadata.get("fulltexts_fetched") if report.similarity and report.similarity.metadata else 0)
+    )
+    if ft_count > 0:
+        filters_html += f'<div style="margin-top:6px; font-size:0.85rem; color:#0d9488;"><strong>Open-Access Retrieval:</strong> {ft_count} full-text paper(s) indexed for cross-body matching</div>'
+
     # 6. Profile & Plan HTML
     profile_html = ""
     if report.profile:
@@ -323,6 +342,7 @@ def export_report_html(
     <div class="section card">
       <h2>Executive Summary</h2>
       <p>{summary_text}</p>
+      {filters_html}
     </div>
 
     {profile_html}

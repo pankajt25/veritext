@@ -1,0 +1,10 @@
+{
+  "_description": "Persistent allowlist of phrases marked as reviewed and harmless by the user.",
+  "phrases": [
+    "under the terms of the Creative Commons Attribution license",
+    "the authors declare no conflict of interest",
+    "data availability statement",
+    "supplementary material is available online",
+    "financial support for this study was provided by"
+  ]
+}

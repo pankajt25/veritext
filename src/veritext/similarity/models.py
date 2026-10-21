@@ -70,16 +70,22 @@ class SourceMatch:
 class SimilarityResult:
     """Complete plagiarism detection analysis result."""
 
-    document_path: Optional[str]
     total_clean_chars: int
     matched_chars: int
     similarity_percentage: float
+    document_path: Optional[str] = None
     spans: List[MatchSpan] = field(default_factory=list)
     sources: List[SourceMatch] = field(default_factory=list)
     anomalies: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        meta = dict(self.metadata)
+        if "all_original_spans" in meta:
+            meta["all_original_spans"] = [
+                s.to_dict() if hasattr(s, "to_dict") else s
+                for s in meta["all_original_spans"]
+            ]
         return {
             "document_path": self.document_path,
             "total_clean_chars": self.total_clean_chars,
@@ -91,7 +97,7 @@ class SimilarityResult:
             "sources": [s.to_dict() for s in self.sources],
             "spans": [span.to_dict() for span in self.spans],
             "anomalies": self.anomalies,
-            "metadata": self.metadata,
+            "metadata": meta,
         }
 
     def to_json(self, indent: int = 2) -> str:

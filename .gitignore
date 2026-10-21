@@ -36,6 +36,9 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/reports/*
 !data/reports/.gitkeep
+data/class_repository/*
+!data/class_repository/.gitkeep
+!data/class_repository/README.md
 *.tmp
 
 # Environment variables

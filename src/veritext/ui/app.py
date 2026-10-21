@@ -1,13 +1,31 @@
-"""Streamlit web application for Veritext Stage 6 adaptive report generation and document inspection."""
+"""Streamlit web application for Veritext Stage 6B verification suite.
+
+Features:
+- Adaptive single document analysis (plagiarism, full-text retrieval, AI text, integrity)
+- Extended exclusion filters with live recalculation without re-running engines
+- Text-spinner and tortured-phrase detection (Cabanac et al. 2021)
+- Local class repository integration and batch collusion heatmap matrix
+"""
 
 import io
 from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
 
+from veritext.batch import run_batch_analysis
+from veritext.classrepo.repo import ClassRepositoryManager
+from veritext.ingest.pipeline import load_document
 from veritext.planner import load_limits_config, make_plan
 from veritext.report.highlight import render_highlighted_html, render_legend_html
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
+from veritext.similarity.filters import (
+    ExclusionFilters,
+    add_to_allowlist,
+    load_allowlist,
+    recalculate_report_filters,
+    remove_from_allowlist,
+)
 from veritext.ui.services import prepare_document_and_plan, run_pipeline
 
 ROBERTA_MODEL_DIR = Path("data/models/roberta-chatgpt")
@@ -19,15 +37,21 @@ def init_session_state():
         st.session_state["full_report"] = None
     if "ignored_spans" not in st.session_state:
         st.session_state["ignored_spans"] = set()
+    if "excluded_sources" not in st.session_state:
+        st.session_state["excluded_sources"] = set()
+    if "template_text" not in st.session_state:
+        st.session_state["template_text"] = ""
     if "last_analyzed_file" not in st.session_state:
         st.session_state["last_analyzed_file"] = ""
     if "cancel_requested" not in st.session_state:
         st.session_state["cancel_requested"] = False
+    if "batch_result" not in st.session_state:
+        st.session_state["batch_result"] = None
 
 
 def main():
     st.set_page_config(
-        page_title="Veritext - Adaptive Academic Integrity Suite",
+        page_title="Veritext - Academic Integrity Suite",
         page_icon="📝",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -36,17 +60,176 @@ def main():
 
     limits_default = load_limits_config()
 
-    # --- SIDEBAR CONFIGURATION ---
+    # --- SIDEBAR NAVIGATION ---
     with st.sidebar:
         st.title("📝 Veritext")
-        st.caption("Adaptive Academic Integrity Suite (Free & Open-Source)")
+        st.caption("Stage 6B Academic Integrity & Verification Suite")
 
+        app_view = st.radio(
+            "Navigation Mode",
+            ["Single Document Verification", "Class Batch Collusion Matrix"],
+            index=0,
+        )
         st.markdown("---")
+
+    # =========================================================================
+    # VIEW 1: CLASS BATCH COLLUSION MATRIX
+    # =========================================================================
+    if app_view == "Class Batch Collusion Matrix":
+        st.title("👥 Class Batch Collusion & Cross-Submission Matrix")
+        st.markdown(
+            "Compute pairwise winnowing similarity across an entire cohort, generate an interactive "
+            "heatmap matrix, and detect collusion clusters with shared passage inspection. "
+            "Engineered to be flat-memory safe for 100 submissions on 8 GB RAM."
+        )
+
+        with st.sidebar:
+            st.subheader("Batch Settings")
+            batch_threshold = st.slider(
+                "Collusion Threshold (%)",
+                min_value=10,
+                max_value=90,
+                value=30,
+                step=5,
+                help="Pairs with similarity at or above this threshold will be flagged and clustered.",
+            )
+            anonymize_batch = st.checkbox(
+                "Anonymise Student Submissions",
+                value=False,
+                help="Display anonymised IDs (e.g. sub_001) instead of student filenames.",
+            )
+
+        st.subheader("1. Select Submissions")
+        batch_source = st.radio(
+            "Submissions Source",
+            ["Upload Multiple Documents", "Local Class Repository", "Local Directory"],
+            horizontal=True,
+        )
+
+        cohort_dir: Optional[Path] = None
+
+        if batch_source == "Upload Multiple Documents":
+            uploaded_batch_files = st.file_uploader(
+                "Choose multiple documents (.docx, .pdf, .txt, .md, .tex)",
+                type=["docx", "pdf", "txt", "md", "tex"],
+                accept_multiple_files=True,
+                help="Upload 2 or more student documents for pairwise collusion inspection.",
+            )
+            if uploaded_batch_files and len(uploaded_batch_files) >= 2:
+                ts = Path("data/uploads/batch_temp")
+                ts.mkdir(parents=True, exist_ok=True)
+                for uf in uploaded_batch_files:
+                    (ts / uf.name).write_bytes(uf.getvalue())
+                cohort_dir = ts
+
+        elif batch_source == "Local Class Repository":
+            cmgr = ClassRepositoryManager()
+            classes = cmgr.list_classes()
+            if not classes:
+                st.info("No class repositories found. Add one using `python -m veritext.classrepo add <class_name> <folder>`.")
+            else:
+                cnames = [c["class_name"] for c in classes]
+                sel_class = st.selectbox("Select Class", options=cnames)
+                st.caption(f"Repository path: `data/class_repository/{sel_class}`")
+                cohort_dir = Path("data/class_repository") / sel_class
+
+        else:
+            dir_input = st.text_input("Directory path containing submission files", value="data/samples")
+            if dir_input:
+                cohort_dir = Path(dir_input)
+
+        col_b_run, _ = st.columns([1, 3])
+        run_batch_btn = col_b_run.button("🚀 Run Pairwise Analysis", type="primary")
+
+        if run_batch_btn:
+            if not cohort_dir or not cohort_dir.exists():
+                st.error("Please provide a valid directory or upload at least 2 submissions.")
+                return
+
+            pbar = st.progress(0.0)
+            pmsg = st.empty()
+
+            try:
+                with st.spinner("Computing pairwise winnowing fingerprints and collusion matrix..."):
+                    result = run_batch_analysis(
+                        folder=cohort_dir,
+                        threshold=batch_threshold / 100.0,
+                        anonymize=anonymize_batch,
+                        progress_callback=lambda msg, frac: (pmsg.text(f"⏳ {msg}"), pbar.progress(frac)),
+                    )
+                st.session_state["batch_result"] = result
+                pbar.empty()
+                pmsg.success("✅ Batch analysis completed successfully!")
+            except Exception as e:
+                pbar.empty()
+                pmsg.empty()
+                st.error(f"❌ Batch analysis error: {e}")
+
+        # Render batch results if available
+        b_res = st.session_state.get("batch_result")
+        if b_res:
+            st.markdown("---")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Total Submissions", len(b_res.submissions))
+            m2.metric(f"Flagged Pairs (≥{b_res.threshold * 100.0:.0f}%)", len(b_res.pairs_above_threshold))
+            m3.metric("Collusion Clusters", len(b_res.clusters))
+
+            # HTML Heatmap display
+            st.markdown("### 🗺️ Pairwise Similarity Heatmap")
+            components.html(b_res.html_report, height=600, scrolling=True)
+
+            # Clusters display
+            st.markdown(f"### 🔗 Collusion Clusters (≥{b_res.threshold * 100.0:.0f}% Similarity)")
+            if not b_res.clusters:
+                st.info("No multi-submission collusion clusters detected.")
+            else:
+                for c_idx, cl in enumerate(b_res.clusters, 1):
+                    with st.expander(f"Cluster #{c_idx} ({len(cl)} submissions): {', '.join(cl)}"):
+                        st.write("Submissions in this cluster share significant verbatim or near-copy winnowing fingerprints.")
+
+            # Flagged pairs with shared passages
+            st.markdown("### 🔍 Flagged Pairs & Shared Passages")
+            if not b_res.pairs_above_threshold:
+                st.success("No submission pairs exceeded the collusion threshold.")
+            else:
+                for idx, p in enumerate(b_res.pairs_above_threshold, 1):
+                    with st.expander(f"{idx}. {p.doc_a_name} ↔ {p.doc_b_name} ({p.similarity_percentage:.1f}% Similarity)"):
+                        st.write(f"**Shared winnowing hashes:** {p.shared_hashes_count}")
+                        if p.shared_passages:
+                            st.markdown("**Shared Passages:**")
+                            for sp in p.shared_passages:
+                                st.markdown(f"> *\"{sp.text_snippet}\"*")
+
+            # Downloads
+            st.markdown("### 💾 Export Matrix")
+            cd1, cd2 = st.columns(2)
+            cd1.download_button(
+                "📥 Download Similarity Matrix (CSV)",
+                data=b_res.csv_content,
+                file_name="similarity_matrix.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+            cd2.download_button(
+                "📥 Download Standalone HTML Heatmap",
+                data=b_res.html_report,
+                file_name="collusion_heatmap.html",
+                mime="text/html",
+                use_container_width=True,
+            )
+        return
+
+    # =========================================================================
+    # VIEW 2: SINGLE DOCUMENT VERIFICATION
+    # =========================================================================
+
+    # Sidebar: Document upload
+    with st.sidebar:
         st.subheader("1. Upload Document")
         uploaded_file = st.file_uploader(
             "Choose a document (.docx, .pdf, .txt, .md, .tex)",
             type=["docx", "pdf", "txt", "md", "tex"],
-            help="Supported formats: Word DOCX, PDF, Text, Markdown, and LaTeX. Adaptive analysis profiles documents without fixed caps.",
+            help="Word DOCX, PDF, Text, Markdown, and LaTeX supported.",
         )
 
         st.markdown("---")
@@ -75,7 +258,6 @@ def main():
             max_value=60,
             value=int(limits_default.get("time_budget_minutes", 10)),
             step=1,
-            help="Maximum allocated execution time budget per engine in Auto mode.",
         )
 
         custom_ai_words = 0
@@ -89,20 +271,24 @@ def main():
         st.subheader("3. Engines & Sources")
 
         use_ai = st.checkbox("AI-Text Detection", value=True, help="Stylometric features + DistilGPT-2 language model perplexity.")
-        use_integrity = st.checkbox("Integrity Checks", value=True, help="Hidden formatting, homoglyphs, citations, and self-plagiarism.")
-        use_online = st.checkbox("Online Source Search", value=False, help="Search open academic repositories (Crossref, arXiv, OpenAlex, Semantic Scholar). Default: offline only.")
-        use_semantic = st.checkbox("Semantic Paraphrase Check", value=False, help="Dense vector embedding search (all-MiniLM-L6-v2). Slower on CPU.")
+        use_integrity = st.checkbox("Integrity Checks", value=True, help="Hidden formatting, homoglyphs, citations, and text spinners.")
+        use_online = st.checkbox("Online Source Search", value=False, help="Search open repositories (arXiv, OpenAlex, Crossref, Wikipedia).")
+        use_semantic = st.checkbox("Semantic Paraphrase Check", value=False, help="Dense vector embedding search (all-MiniLM-L6-v2).")
 
-        # RoBERTa opt-in (disabled if model weights absent)
+        use_fulltext = st.checkbox(
+            "Fetch full text of top matches",
+            value=use_online,
+            disabled=not use_online,
+            help="Fetch open-access full-text body (arXiv, Europe PMC, OpenAlex, Wikipedia) for top candidates.",
+        )
+
         roberta_available = ROBERTA_MODEL_DIR.exists()
         use_roberta = st.checkbox(
             "Deep Classifier (RoBERTa)",
             value=False,
             disabled=not roberta_available,
-            help="Pretrained classifier weights (Hello-SimpleAI/chatgpt-detector-roberta). Run 'python -m veritext.ai_detect --download-models' to install.",
+            help="Pretrained classifier weights (Hello-SimpleAI/chatgpt-detector-roberta).",
         )
-        if not roberta_available:
-            st.caption("ℹ️ *RoBERTa not downloaded. Run `python -m veritext.ai_detect --download-models` to enable.*")
 
         min_words = st.slider(
             "Min Match Words",
@@ -113,16 +299,53 @@ def main():
         )
 
         st.markdown("---")
+        st.subheader("4. Class Repository")
+        cmgr = ClassRepositoryManager()
+        avail_classes = cmgr.list_classes()
+        class_options = ["None"] + [c["class_name"] for c in avail_classes]
+        selected_class = st.selectbox(
+            "Include Class Repository",
+            options=class_options,
+            index=0,
+            help="Include submissions from a local class repository as comparison sources.",
+        )
+        show_class_names = st.checkbox(
+            "Show Student Names (Instructional Staff Only)",
+            value=False,
+            help="Default: Anonymised submission IDs are shown for student confidentiality.",
+        )
 
-    # --- PERMANENT DISCLAIMER BANNER ---
+        st.markdown("---")
+        st.subheader("5. Extended Exclusion Filters")
+        tpl_uploader = st.file_uploader(
+            "Template / Assignment Prompt File",
+            type=["docx", "pdf", "txt", "md"],
+            help="Exclude matches matching instructor prompt or boilerplate.",
+        )
+        if tpl_uploader is not None:
+            try:
+                tpl_bytes = tpl_uploader.getvalue()
+                t_doc = load_document(tpl_bytes, filename=tpl_uploader.name)
+                st.session_state["template_text"] = t_doc.clean_text or t_doc.raw_text or ""
+            except Exception:
+                st.session_state["template_text"] = tpl_uploader.getvalue().decode("utf-8", errors="replace")
+
+        ex_small = st.checkbox("Exclude small matches (<25 chars)", value=True)
+        ex_quotes = st.checkbox("Exclude quoted text", value=False)
+        ex_template = st.checkbox("Exclude assignment template", value=bool(tpl_uploader))
+        ex_academic = st.checkbox("Exclude common academic phrases", value=False)
+        ex_allowlist = st.checkbox("Exclude allowlisted phrases", value=False)
+
+        st.markdown("---")
+
+    # Disclaimer Banner
     st.info(
         "⚖️ **Responsible Use Notice:** Veritext provides statistical indicators and heuristic signals for self-review, "
-        "not definitive proof of academic misconduct. AI detectors are probabilistic and may misidentify human prose, "
-        "especially from non-native English writers. Human pedagogical judgment is always required.",
+        "not definitive proof of academic misconduct. Automated checks produce false positives; human pedagogical judgment is required.",
         icon="ℹ️",
     )
 
-    # --- PROFILE AND LIVE PLAN COMPUTATION ---
+    # Document Profile & Live Plan Computation
     doc_obj = None
     profile_obj = None
     plan_obj = None
@@ -148,19 +371,12 @@ def main():
         except Exception as e:
             st.error(f"Error parsing uploaded document: {e}")
 
-    # --- EXECUTION BUTTONS & ESTIMATES ---
+    # Sidebar: Execution buttons
     with st.sidebar:
         if plan_obj is not None:
             total_sec = plan_obj.total_estimated_seconds
             total_m = total_sec / 60.0
             st.markdown(f"⏱️ **Total Estimated Time:** {total_sec:.1f}s (~{total_m:.1f} min)")
-
-            if total_sec > 15 * 60:
-                st.warning(
-                    "⚠️ Total estimated execution time exceeds 15 minutes. "
-                    "Suggestions: untick the semantic paraphrase check or reduce the engine time budget.",
-                    icon="⚠️",
-                )
 
         col_run, col_stop = st.columns(2)
         run_btn = col_run.button("🚀 Run Analysis", type="primary", use_container_width=True)
@@ -168,14 +384,9 @@ def main():
 
         if stop_btn:
             st.session_state["cancel_requested"] = True
-            st.warning("Cancellation requested. Stopping between engine chunks...")
+            st.warning("Cancellation requested. Stopping between chunks...")
 
-        st.caption(
-            "*(Note: In Streamlit, cancellation checks between processing chunks and engine steps, "
-            "cleanly preserving completed engine results.)*"
-        )
-
-    # --- EXECUTE ANALYSIS ---
+    # Run Analysis
     if run_btn:
         if uploaded_file is None:
             st.error("Please upload a document to analyze.")
@@ -188,10 +399,13 @@ def main():
             "time_budget_minutes": time_budget,
             "use_online": use_online,
             "use_semantic": use_semantic,
+            "use_fulltext": use_fulltext,
             "use_ai": use_ai,
             "use_integrity": use_integrity,
             "use_roberta": use_roberta,
             "min_words": min_words,
+            "class_name": selected_class if selected_class != "None" else None,
+            "show_names": show_class_names,
             "custom_ai_words": custom_ai_words if mode_choice == "Custom" else 0,
             "custom_semantic_words": custom_semantic_words if mode_choice == "Custom" else 0,
         }
@@ -219,6 +433,7 @@ def main():
 
             st.session_state["full_report"] = report
             st.session_state["ignored_spans"] = set()
+            st.session_state["excluded_sources"] = set()
             st.session_state["last_analyzed_file"] = uploaded_file.name
             status_text.success("✅ Analysis completed successfully!")
             progress_bar.empty()
@@ -229,12 +444,29 @@ def main():
             st.error(f"❌ Analysis failed: {e}")
             return
 
-    # --- MAIN VIEW ---
+    # Check for live filter recalculation
     report = st.session_state["full_report"]
 
+    if report is not None and report.similarity:
+        # Build ExclusionFilters from current sidebar controls
+        al_items = load_allowlist() if ex_allowlist else []
+        live_filters = ExclusionFilters(
+            exclude_small_matches=ex_small,
+            min_match_chars=25,
+            exclude_quotes=ex_quotes,
+            exclude_sources=st.session_state.get("excluded_sources", set()),
+            exclude_template=ex_template,
+            template_text=st.session_state.get("template_text", ""),
+            exclude_allowlist=ex_allowlist,
+            allowlist=al_items,
+            exclude_academic_phrases=ex_academic,
+        )
+        report = recalculate_report_filters(report, live_filters)
+        st.session_state["full_report"] = report
+
+    # MAIN VIEW
     if report is None:
         if profile_obj is not None and plan_obj is not None:
-            # Show Document Profile Card
             st.markdown(f"### 📄 Document Profile: `{uploaded_file.name}`")
             p1, p2, p3, p4 = st.columns(4)
             p1.metric("Word Count", f"{profile_obj.word_count:,}")
@@ -242,7 +474,6 @@ def main():
             p3.metric("Estimated Pages", f"{profile_obj.page_estimate:,}", "500 words/page")
             p4.metric("Size Class", profile_obj.size_class.upper(), f"{profile_obj.language_guess} detected")
 
-            # Show Live Plan Table
             st.markdown("### 📋 Analysis Plan")
             st.caption(f"Mode: **{plan_obj.mode.upper()}** | Per-Engine Budget: **{plan_obj.time_budget_minutes:.1f} min**")
 
@@ -258,11 +489,6 @@ def main():
                     "Reason": ep.reason,
                 })
             st.dataframe(plan_table_data, use_container_width=True, hide_index=True)
-
-            if plan_obj.warnings:
-                for w in plan_obj.warnings:
-                    st.warning(f"⚠️ {w}")
-
             st.markdown("---")
             st.info("👈 Review the analysis plan above and click **🚀 Run Analysis** in the sidebar to begin.")
             return
@@ -273,16 +499,16 @@ def main():
             "students, educators, and researchers evaluate academic integrity offline on modest hardware."
         )
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("#### 🔍 Plagiarism Detection")
-            st.write("Fast winnowing fingerprinting and dense neural semantic search across open reference libraries.")
-        with col2:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("#### 🔍 Plagiarism & Full-Text")
+            st.write("Winnowing fingerprinting with open-access full-text retrieval from arXiv, Europe PMC, OpenAlex, Wikipedia.")
+        with c2:
             st.markdown("#### 🤖 AI-Text Stylometry")
             st.write("Chunked distilgpt2 perplexity, burstiness, and stylometric cadence with flat memory consumption.")
-        with col3:
-            st.markdown("#### 🛡️ Formatting & Integrity")
-            st.write("Cyrillic homoglyphs, genuine zero-width evasion, DOCX/PDF white font tricks, and citation gaps.")
+        with c3:
+            st.markdown("#### 🛡️ Integrity & Text Spinners")
+            st.write("Cabanac et al. (2021) tortured phrases, rare synonym substitution, Cyrillic homoglyphs, and white fonts.")
 
         st.markdown("---")
         st.info("👈 Upload a document in the left sidebar to inspect its statistical profile and generate an adaptive plan.")
@@ -292,9 +518,9 @@ def main():
     tab_summary, tab_doc, tab_sources, tab_ai, tab_integrity, tab_download = st.tabs([
         "📊 Summary & Plan",
         "📄 Highlighted Document",
-        "📚 Sources",
+        "📚 Sources & Exclusions",
         "🤖 AI Analysis",
-        "🛡️ Integrity Findings",
+        "🛡️ Integrity & Text Spinners",
         "💾 Export & Download",
     ])
 
@@ -306,7 +532,11 @@ def main():
         with m1:
             sim_val = f"{report.similarity.similarity_percentage:.1f}%" if report.similarity else "N/A"
             src_cnt = len(report.similarity.sources) if report.similarity else 0
-            st.metric("Similarity Score", sim_val, f"{src_cnt} matched source(s)")
+            ft_cnt = report.similarity.metadata.get("fulltexts_fetched", 0) if report.similarity else 0
+            sub_label = f"{src_cnt} matched source(s)"
+            if ft_cnt > 0:
+                sub_label += f" ({ft_cnt} full-text fetched)"
+            st.metric("Similarity Score", sim_val, sub_label)
 
         with m2:
             ai_prob = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", None)) if report.ai_detect else None
@@ -326,7 +556,11 @@ def main():
         st.markdown("#### Executive Overview")
         st.write(report.summary)
 
-        # Profile & Plan section in report
+        # Active filters display
+        active_filts = report.settings.get("active_filters", [])
+        if active_filts:
+            st.markdown(f"**Active Exclusion Filters:** {', '.join(active_filts)}")
+
         if report.profile:
             st.markdown("---")
             st.markdown("#### Document Profile & Engine Coverage")
@@ -336,13 +570,6 @@ def main():
             c2.markdown(f"**Total Characters:** {prof.get('character_count', 0):,}")
             c3.markdown(f"**Estimated Pages:** {prof.get('page_estimate', 1):,}")
             c4.markdown(f"**Size Class:** {prof.get('size_class', 'medium').upper()}")
-
-        if report.plan:
-            plan_data = report.plan.get("engines", {})
-            st.markdown("**Per-Engine Analysis Coverage:**")
-            for eng_k, eng_v in plan_data.items():
-                cov_desc = eng_v.get("coverage_description", "full document analysed")
-                st.write(f"• **{eng_k.replace('_', ' ').title()}**: {cov_desc}")
 
     # 2. TAB: HIGHLIGHTED DOCUMENT
     with tab_doc:
@@ -375,7 +602,7 @@ def main():
 
             active_highlights = [
                 h for h in report.highlights
-                if h.category in selected_cats and h.id not in st.session_state["ignored_spans"]
+                if h.category in selected_cats and h.id not in st.session_state["ignored_spans"] and not h.ignored
             ]
         else:
             active_highlights = []
@@ -394,18 +621,53 @@ def main():
             unsafe_allow_html=True,
         )
 
-    # 3. TAB: SOURCES
+    # 3. TAB: SOURCES & EXCLUSIONS
     with tab_sources:
         st.subheader("Plagiarism & Matching Sources")
+
+        with st.expander("Manage Persistent Allowlist of Harmless Phrases"):
+            curr_allowlist = load_allowlist()
+            new_al_phrase = st.text_input("Add harmless phrase to persistent allowlist", key="inp_add_al_tab")
+            if st.button("➕ Add Phrase to Allowlist", key="btn_add_al_tab"):
+                if new_al_phrase.strip():
+                    add_to_allowlist(new_al_phrase.strip())
+                    st.success(f"Added: '{new_al_phrase.strip()}'")
+                    st.rerun()
+
+            if curr_allowlist:
+                st.caption(f"Currently active allowlisted phrases ({len(curr_allowlist)} total):")
+                for p_idx, p_str in enumerate(curr_allowlist):
+                    c_txt, c_del = st.columns([4, 1])
+                    c_txt.code(p_str)
+                    if c_del.button("❌", key=f"del_al_tab_{p_idx}"):
+                        remove_from_allowlist(p_str)
+                        st.rerun()
+
+        st.markdown("---")
+
+        if st.session_state.get("excluded_sources"):
+            c_wrn, c_rst = st.columns([3, 1])
+            c_wrn.warning(f"🚫 {len(st.session_state['excluded_sources'])} source(s) excluded from scoring.")
+            if c_rst.button("🔄 Restore all excluded sources"):
+                st.session_state["excluded_sources"] = set()
+                st.rerun()
+
         if not report.similarity or not report.similarity.sources:
             st.info("No matching plagiarism sources detected in local reference library or online sources.")
         else:
             for s in report.similarity.sources:
                 with st.expander(f"{s.source_title} - {s.percentage:.1f}% ({s.origin.upper()})"):
-                    st.write(f"**Source Origin:** `{s.origin}`")
-                    if s.source_url:
-                        st.write(f"**URL:** [{s.source_url}]({s.source_url})")
-                    st.write(f"**Matched Characters:** {s.matched_chars} chars across {s.match_count} distinct span(s)")
+                    col_info, col_ex = st.columns([3, 1])
+                    with col_info:
+                        st.write(f"**Source Origin:** `{s.origin}`")
+                        if s.source_url:
+                            st.write(f"**URL:** [{s.source_url}]({s.source_url})")
+                        st.write(f"**Matched Characters:** {s.matched_chars} chars across {s.match_count} distinct span(s)")
+                    with col_ex:
+                        if st.button(f"🚫 Exclude Source", key=f"btn_ex_src_{s.source_id}"):
+                            st.session_state["excluded_sources"].add(s.source_id)
+                            st.rerun()
+
                     st.markdown("---")
                     st.markdown("**Sample Matched Passages:**")
                     for sp in s.spans[:3]:
@@ -444,13 +706,36 @@ def main():
                 })
             st.dataframe(sent_data, use_container_width=True)
 
-    # 5. TAB: INTEGRITY FINDINGS
+    # 5. TAB: INTEGRITY & TEXT SPINNERS
     with tab_integrity:
-        st.subheader("Integrity, Formatting Obfuscation & Citations")
+        st.subheader("Integrity, Formatting Obfuscation & Text Spinners")
         if not report.integrity or not report.integrity.results:
             st.info("No integrity issues detected.")
         else:
-            for cr in report.integrity.results:
+            spinner_cr = next((r for r in report.integrity.results if r.check_name == "spinner"), None)
+            other_crs = [r for r in report.integrity.results if r.check_name != "spinner"]
+
+            if spinner_cr:
+                st.markdown("### 🔄 Text-Spinner & Tortured-Phrase Findings")
+                st.caption(
+                    "Detection based on Cabanac, Labbe and Magazinov (2021) documented tortured phrases "
+                    "and semantic synonym substitutions."
+                )
+                if not spinner_cr.findings:
+                    st.success("✅ Passed - No text-spinning or tortured phrases detected.")
+                else:
+                    for f in spinner_cr.findings:
+                        st.warning(f"⚠️ **[WARNING]** {f.message} (offset {f.start}:{f.end})")
+                        if "found_phrase" in f.details:
+                            st.write(f"• Tortured phrase: `{f.details['found_phrase']}` (Standard term: *{f.details.get('standard_term')}*)")
+                        elif "substitutions" in f.details:
+                            st.write(f"• Semantic synonym substitution (similarity: {f.details.get('similarity_score', 0):.2f}):")
+                            for sub in f.details["substitutions"]:
+                                st.write(f"   - WordNet substitution: `{sub.get('doc_word')}` instead of `{sub.get('source_word')}`")
+                st.markdown("---")
+
+            st.markdown("### 🛡️ Other Integrity & Formatting Checks")
+            for cr in other_crs:
                 st.markdown(f"#### Module: `{cr.check_name}`")
                 st.caption(cr.summary)
                 if not cr.findings:
@@ -464,7 +749,7 @@ def main():
     # 6. TAB: EXPORT & DOWNLOAD
     with tab_download:
         st.subheader("Export & Download Analysis Report")
-        st.write("Generate and download comprehensive offline report files in JSON, HTML, and PDF formats.")
+        st.write("Generate and download comprehensive offline report files with active exclusion filters.")
 
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:

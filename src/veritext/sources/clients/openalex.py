@@ -82,6 +82,9 @@ def search(
                 else hashlib.sha256((url or title).encode("utf-8")).hexdigest()[:16]
             )
 
+            best_oa = item.get("best_oa_location") or {}
+            oa_pdf_url = best_oa.get("pdf_url") or item.get("open_access", {}).get("oa_url")
+
             candidates.append(
                 SourceCandidate(
                     id=candidate_id,
@@ -95,6 +98,7 @@ def search(
                         "doi": doi,
                         "openalex_id": item.get("id"),
                         "cited_by_count": item.get("cited_by_count", 0),
+                        "best_oa_pdf_url": oa_pdf_url,
                     },
                 )
             )

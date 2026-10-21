@@ -12,6 +12,7 @@ from veritext.checks.code_similarity import SUPPORTED_CODE_EXTENSIONS, check_cod
 from veritext.checks.hidden import check_hidden_content
 from veritext.checks.models import CheckResult, IntegrityReport
 from veritext.checks.selfcheck import check_self_plagiarism
+from veritext.checks.spinner import check_spinner
 from veritext.ingest.models import Document
 from veritext.ingest.pipeline import load_document
 
@@ -22,6 +23,7 @@ def run_all_checks(
     previous: bool = True,
     code_folder: Optional[Union[str, Path]] = None,
     template_file: Optional[Union[str, Path]] = None,
+    custom_tortured_phrases: Optional[Union[str, Path]] = None,
 ) -> IntegrityReport:
     """Runs all applicable integrity checks on a document.
 
@@ -99,6 +101,14 @@ def run_all_checks(
         if previous:
             res_self = check_self_plagiarism(doc)
             results.append(res_self)
+
+        # 4. Text-spinner and tortured-phrase check
+        res_spinner = check_spinner(
+            doc,
+            similarity_result=similarity_result,
+            custom_file=custom_tortured_phrases,
+        )
+        results.append(res_spinner)
 
     # Calculate overall status and summary
     total_findings = sum(len(r.findings) for r in results)

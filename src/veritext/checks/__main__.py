@@ -32,6 +32,7 @@ def cli_run_document_checks(args: argparse.Namespace) -> int:
         previous=not args.no_previous,
         code_folder=args.code_folder,
         template_file=args.template,
+        custom_tortured_phrases=getattr(args, "custom_tortured_phrases", None),
     )
 
     print("\n--- RESULTS BY CHECK ---")
@@ -152,6 +153,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser_check.add_argument("--no-previous", action="store_true", help="Skip self-plagiarism check against previous work")
     parser_check.add_argument("--code-folder", help="Peer code folder if inspecting a single code file")
     parser_check.add_argument("--template", help="Boilerplate template file if inspecting code")
+    parser_check.add_argument("--custom-tortured-phrases", help="Path to JSON file with additional tortured phrases")
 
     # Support default positional argument directly: python -m veritext.checks <file>
     if argv is None:

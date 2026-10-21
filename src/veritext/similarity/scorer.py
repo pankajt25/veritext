@@ -137,5 +137,6 @@ def compute_similarity_score(
                 1 for s in counted_spans if s.type in ("near_copy", "paraphrase")
             ),
             "total_matches_count": len(counted_spans),
+            "all_original_spans": spans,
         },
     )

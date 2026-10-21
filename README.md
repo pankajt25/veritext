@@ -21,7 +21,9 @@ veritext/
 │   └── workflows/
 │       └── tests.yml             # GitHub Actions CI workflow
 ├── data/
-│   ├── cache/                    # SQLite HTTP response cache (gitignored)
+│   ├── cache/                    # SQLite HTTP and fulltext cache (gitignored)
+│   ├── class_repository/         # Local class submissions & fingerprints (gitignored)
+│   ├── config/                   # Tortured phrases, allowlist, and runtime limits
 │   ├── references/               # Local reference library documents
 │   └── samples/                  # Sample academic documents (.docx, .pdf, .tex, .txt, .md)
 ├── docs/                         # Project documentation and stage plans
@@ -32,12 +34,14 @@ veritext/
 │       ├── planner.py            # Adaptive resource planner & section sampling
 │       ├── timing.py             # Hardware timing calibration & speed benchmarking
 │       ├── ingest/               # Document loaders, cleaners, and splitters
-│       ├── sources/              # Free source search, clients, and local FTS5 store
-│       ├── similarity/           # Similarity and plagiarism detection
+│       ├── sources/              # Free source search, fulltext retrieval, and SQLite FTS5 store
+│       ├── similarity/           # Plagiarism detection, exact matching, and live filters
 │       ├── ai_detect/            # AI-generated text detection
-│       ├── checks/               # Integrity and adversarial checks
+│       ├── checks/               # Integrity checks, text-spinner detection (Cabanac et al. 2021)
+│       ├── classrepo/            # Local class repository manager & privacy modes
+│       ├── batch/                # Pairwise winnowing collusion matrix & heatmap generator
 │       ├── report/               # Report and PDF generation
-│       └── ui/                   # Streamlit interface
+│       └── ui/                   # Streamlit interface with batch & exclusion tools
 ├── tests/                        # Automated unit and integration test suite
 │   └── fixtures/                 # Mock API response fixtures
 ├── .gitignore
@@ -363,6 +367,36 @@ python -m veritext.timing calibrate
 
 - **No Remote Dependencies**: Standalone HTML reports embed all styles and run 100% offline without remote CDNs or web fonts.
 - **Data Isolation**: Uploaded files (`data/uploads/`) and generated reports (`data/reports/`) are strictly gitignored and never committed or transmitted externally.
+
+### Stage 6B Detection Features
+
+```bash
+# Full-text open-access retrieval for top matching candidates
+python -m veritext.similarity data/samples/sample.txt --fetch-fulltext
+
+# Cross-submission verification against a local class repository
+python -m veritext.similarity data/samples/sample.txt --class cs101
+
+# Manage class repositories
+python -m veritext.classrepo add cs101 path/to/submissions/ --fingerprints-only
+python -m veritext.classrepo list cs101
+python -m veritext.classrepo delete cs101
+
+# Batch pairwise collusion matrix & self-contained HTML heatmap
+python -m veritext.batch path/to/cohort/ --threshold 0.30
+```
+
+### Class Repository Privacy & Data Rights
+
+Veritext provides local class repositories for cross-submission and collusion matching:
+- **100% Local Processing**: All submissions in `data/class_repository/` are processed completely offline on your device. Nothing is uploaded to external clouds or servers.
+- **Fingerprints-Only Privacy Mode (`--fingerprints-only`)**: When adding submissions with `--fingerprints-only`, student text is immediately discarded from memory. Only mathematical winnowing hashes and character offsets are stored, guaranteeing that original prose cannot be reconstructed.
+- **Anonymised Student Identifiers**: Submissions are indexed with anonymised IDs (e.g. `sub_a1b2c3d4`) to preserve confidentiality during routine checks. Original file names are only shown if the `--show-names` flag is explicitly enabled.
+- **Data Rights & Purge**: Students and institutions retain full rights to their intellectual property. Repositories can be removed at any time via `python -m veritext.classrepo delete <class_name>` or completely purged with `python -m veritext.classrepo purge`.
+
+### Source Coverage & Scope Notice
+
+Veritext comparison and search capabilities are strictly limited to open-access public repositories (arXiv, Europe PMC, OpenAlex, Wikipedia) and the user's own local repositories. Veritext makes no claims of matching commercial platforms and requires no subscriptions or paid APIs.
 
 ---
 

@@ -115,6 +115,7 @@ def run_pipeline(
     semantic_plan = plan.engines.get("semantic")
     use_online = bool(opts.get("use_online", False))
     use_semantic = bool(semantic_plan and semantic_plan.enabled)
+    use_fulltext = bool(opts.get("use_fulltext", use_online))
     min_words = int(opts.get("min_words", 8))
 
     if exact_plan and exact_plan.enabled:
@@ -128,6 +129,9 @@ def run_pipeline(
                 options={
                     "skip_semantic": not use_semantic,
                     "min_words": min_words,
+                    "fetch_fulltext": use_fulltext,
+                    "class_name": opts.get("class_name"),
+                    "show_names": opts.get("show_names", False),
                     "word_ranges": semantic_plan.word_ranges if (semantic_plan and semantic_plan.sampling_mode == "section_sampled") else None,
                     "progress_callback": lambda msg: report_progress(msg, 0.35),
                     "cancel_check": cancel_check,

@@ -93,8 +93,15 @@ def generate_paragraph_heat_strip(
         # 1. Similarity overlap in paragraph
         p_intervals: List[Tuple[int, int]] = []
         for s in sim_spans:
-            s_start = getattr(s, "doc_start", None) or s.get("doc_start", 0)
-            s_end = getattr(s, "doc_end", None) or s.get("doc_end", 0)
+            if hasattr(s, "doc_start"):
+                s_start = s.doc_start
+                s_end = s.doc_end
+            elif isinstance(s, dict):
+                s_start = s.get("doc_start", 0)
+                s_end = s.get("doc_end", 0)
+            else:
+                s_start = getattr(s, "doc_start", 0)
+                s_end = getattr(s, "doc_end", 0)
             if s_start < p_end and s_end > p_start:
                 inter_s = max(s_start, p_start)
                 inter_e = min(s_end, p_end)

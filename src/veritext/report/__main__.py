@@ -14,11 +14,38 @@ from veritext.profile import profile_document
 from veritext.report.builder import build_report
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
+from veritext.report.seal import compute_seal, verify_file
 from veritext.similarity.engine import check_document
 from veritext.timing import load_timing
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    args_list = argv if argv is not None else sys.argv[1:]
+
+    # Handle 'verify' subcommand: python -m veritext.report verify <report.json>
+    if args_list and args_list[0] == "verify":
+        verify_parser = argparse.ArgumentParser(
+            prog="python -m veritext.report verify",
+            description="Verify cryptographic tamper-evident seal of a Veritext JSON report.",
+        )
+        verify_parser.add_argument("report_file", help="Path to report JSON file to verify")
+        verify_parser.add_argument(
+            "--key",
+            help="Optional path to signing key (default: data/config/report_key)",
+            default=None,
+        )
+        parsed = verify_parser.parse_args(args_list[1:])
+
+        is_valid, reason = verify_file(parsed.report_file, key_path=parsed.key)
+        if is_valid:
+            print(f"VALID: {reason}")
+            print("Notice: Detects unauthorized edits made without the local signing key. Not formal legal proof.")
+            return 0
+        else:
+            print(f"TAMPERED: {reason}")
+            print("Notice: Detects unauthorized edits made without the local signing key. Not formal legal proof.")
+            return 1
+
     parser = argparse.ArgumentParser(
         prog="veritext.report",
         description="Generates consolidated Veritext reports in JSON, HTML, and PDF formats.",
@@ -195,6 +222,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     json_path = out_dir / f"{stem}_{ts}.json"
     html_path = out_dir / f"{stem}_{ts}.html"
     pdf_path = out_dir / f"{stem}_{ts}.pdf"
+
+    # Seal report cryptographically
+    report.seal = compute_seal(report.to_dict())
 
     # Export all three formats
     json_path.write_text(report.to_json(), encoding="utf-8")

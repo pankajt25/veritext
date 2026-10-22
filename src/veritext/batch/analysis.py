@@ -15,6 +15,11 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from veritext.fingerprint.kgrams import generate_kgrams
+from veritext.fingerprint.minhash import (
+    compute_minhash,
+    minhash_jaccard,
+    screen_batch_candidates,
+)
 from veritext.fingerprint.winnow import winnow
 from veritext.ingest.loaders import LOADER_MAP
 from veritext.ingest.pipeline import load_document
@@ -375,17 +380,50 @@ def run_batch_analysis(
     total_pairs = (n * (n - 1)) // 2
     pairs_done = 0
 
-    report(f"Computing pairwise winnowing overlap across {total_pairs} pairs...", 0.40)
+    report(f"Screening candidate pairs with MinHash/LSH across {n} submissions...", 0.35)
+
+    # Compute MinHash signatures and screen candidate pairs via LSH
+    doc_fps = {fingerprints[i].id: fingerprints[i].fingerprint_set for i in range(n)}
+    lsh_candidate_pairs, sig_map = screen_batch_candidates(doc_fps)
+
+    # Convert candidate pairs to index pairs
+    id_to_idx = {fingerprints[i].id: i for i in range(n)}
+    candidate_index_pairs: Set[Tuple[int, int]] = set()
+
+    for ida, idb in lsh_candidate_pairs:
+        if ida in id_to_idx and idb in id_to_idx:
+            ia, ib = id_to_idx[ida], id_to_idx[idb]
+            candidate_index_pairs.add((min(ia, ib), max(ia, ib)))
+
+    # For large cohorts (n > 20), also check MinHash Jaccard margin to ensure zero misses
+    # For small cohorts (n <= 20), check all pairs
+    check_all = n <= 20
+
+    report(f"Computing winnowing verification across shortlisted pairs...", 0.50)
 
     for i in range(n):
         matrix[i][i] = 100.0
         sub_a = fingerprints[i]
         set_a = sub_a.fingerprint_set
+        sig_a = sig_map.get(sub_a.id)
 
         for j in range(i + 1, n):
             sub_b = fingerprints[j]
-            set_b = sub_b.fingerprint_set
+            sig_b = sig_map.get(sub_b.id)
 
+            is_candidate = (
+                check_all
+                or ((i, j) in candidate_index_pairs)
+                or (sig_a and sig_b and minhash_jaccard(sig_a, sig_b) >= threshold * 0.6)
+            )
+
+            if not is_candidate:
+                matrix[i][j] = 0.0
+                matrix[j][i] = 0.0
+                pairs_done += 1
+                continue
+
+            set_b = sub_b.fingerprint_set
             shared = set_a.intersection(set_b)
             total = len(set_a) + len(set_b)
 
@@ -413,8 +451,8 @@ def run_batch_analysis(
                 )
 
             pairs_done += 1
-            if pairs_done % 10 == 0:
-                report(f"Compared {pairs_done}/{total_pairs} pairs...", 0.40 + 0.40 * (pairs_done / total_pairs))
+            if pairs_done % 25 == 0 or pairs_done == total_pairs:
+                report(f"Evaluated {pairs_done}/{total_pairs} pairs...", 0.50 + 0.35 * (pairs_done / total_pairs))
 
     flagged_pairs.sort(key=lambda p: p.similarity_percentage, reverse=True)
     clusters = find_clusters(flagged_pairs, names)

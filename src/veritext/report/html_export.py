@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Optional, Set, Union
 
 from veritext.report.dashboard import generate_paragraph_heat_strip, render_heat_strip_html
+from veritext.report.diff import extract_report_diffs
 from veritext.report.highlight import render_highlighted_html, render_legend_html
 from veritext.report.models import FullReport
+from veritext.report.seal import compute_seal
 
 
 def export_report_html(
@@ -313,6 +315,42 @@ def export_report_html(
     settings_items = [f"<li><strong>{html.escape(str(k))}:</strong> {html.escape(str(v))}</li>" for k, v in report.settings.items()]
     settings_html = f"<ul>{''.join(settings_items)}</ul>" if settings_items else "<p>Default settings applied.</p>"
 
+    # 8. Side-by-side diffs
+    diff_items = extract_report_diffs(report, max_matches=10)
+    if diff_items:
+        diff_cards = "".join(item.render_html_details() for item in diff_items)
+        diff_section = f"""
+    <div class="section card">
+      <h2>Side-by-Side Source Comparisons</h2>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:14px;">
+        Word-level alignment of shared passages (maximum 1,500 characters per excerpt). Click any source to expand.
+      </p>
+      {diff_cards}
+    </div>
+        """
+    else:
+        diff_section = ""
+
+    # 9. Cryptographic seal
+    seal_info = report.seal or compute_seal(report.to_dict())
+    seal_section = f"""
+    <div class="section card" style="border-left: 4px solid #059669; background: rgba(5, 150, 105, 0.05);">
+      <h3 style="margin-top:0; color:#065f46; display:flex; align-items:center; gap:8px;">
+        <span style="background:#059669; color:#ffffff; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">SEALED</span>
+        Cryptographic Tamper-Evident Report Seal
+      </h3>
+      <p style="font-size:0.85rem; color:#047857; margin-bottom:8px;">
+        {html.escape(seal_info.get('notice', ''))}
+      </p>
+      <div style="font-family:ui-monospace, monospace; font-size:0.8rem; background:var(--bg-body); padding:10px; border-radius:4px; border:1px solid var(--border-card); word-break:break-all;">
+        <div><strong>Algorithm:</strong> {html.escape(seal_info.get('algorithm', 'HMAC-SHA256'))}</div>
+        <div><strong>Canonical SHA-256:</strong> {html.escape(seal_info.get('canonical_sha256', ''))}</div>
+        <div><strong>HMAC Signature:</strong> {html.escape(seal_info.get('signature', ''))}</div>
+        <div><strong>Verify CLI:</strong> <code>python -m veritext.report verify &lt;report.json&gt;</code></div>
+      </div>
+    </div>
+    """
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -456,6 +494,8 @@ def export_report_html(
       </div>
     </div>
 
+    {seal_section}
+
     <div class="section card">
       <h2>Executive Summary</h2>
       <p>{summary_text}</p>
@@ -473,6 +513,8 @@ def export_report_html(
       {legend_html}
       {highlighted_doc_html}
     </div>
+
+    {diff_section}
 
     <div class="section card">
       <h2>Matched Sources</h2>

@@ -93,10 +93,11 @@ class FullReport:
     profile: Optional[Dict[str, Any]] = None
     plan: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    seal: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes the report to a JSON-compatible dictionary."""
-        return {
+        d = {
             "document_name": self.document_name,
             "document_path": self.document_path,
             "original_text": self.original_text,
@@ -113,6 +114,9 @@ class FullReport:
             "disclaimer": self.disclaimer,
             "metadata": self.metadata,
         }
+        if self.seal is not None:
+            d["seal"] = self.seal
+        return d
 
     def to_json(self, indent: int = 2) -> str:
         """Serializes the report to a formatted JSON string."""
@@ -268,4 +272,5 @@ class FullReport:
             summary=data.get("summary", ""),
             disclaimer=data.get("disclaimer", DEFAULT_DISCLAIMER),
             metadata=data.get("metadata", {}),
+            seal=data.get("seal"),
         )

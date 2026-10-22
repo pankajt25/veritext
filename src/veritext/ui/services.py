@@ -75,6 +75,7 @@ def run_pipeline(
     settings: Optional[Dict[str, Any]] = None,
     progress_callback: Optional[Callable[[str, float], None]] = None,
     cancel_check: Optional[Callable[[], bool]] = None,
+    live_result_callback: Optional[Callable[[str, Any], None]] = None,
 ) -> FullReport:
     """Executes the adaptive Veritext analysis pipeline with per-engine planning.
 
@@ -142,6 +143,8 @@ def run_pipeline(
                 observed_speeds["semantic_sec_per_1000"] = round(
                     t_sem_elapsed * (1000.0 / semantic_plan.words_to_analyze), 2
                 )
+            if live_result_callback and sim_result:
+                live_result_callback("similarity", sim_result)
         except Exception as e:
             report_progress(f"Notice: Similarity engine issue: {e}", 0.45)
             logger.warning(f"Similarity engine failed: {e}")
@@ -171,6 +174,8 @@ def run_pipeline(
                 observed_speeds["ai_distilgpt2_sec_per_1000"] = round(
                     t_ai_elapsed * (1000.0 / ai_plan.words_to_analyze), 2
                 )
+            if live_result_callback and ai_result:
+                live_result_callback("ai_detect", ai_result)
         except Exception as e:
             report_progress(f"Notice: AI detection issue: {e}", 0.70)
             logger.warning(f"AI detection failed: {e}")
@@ -188,6 +193,8 @@ def run_pipeline(
         report_progress("Verifying integrity, white font, citations, and homoglyphs...", 0.85)
         try:
             integ_result = run_all_checks(doc, similarity_result=sim_result)
+            if live_result_callback and integ_result:
+                live_result_callback("integrity", integ_result)
         except Exception as e:
             report_progress(f"Notice: Integrity checks issue: {e}", 0.90)
             logger.warning(f"Integrity checks failed: {e}")
@@ -226,6 +233,9 @@ def run_pipeline(
         profile=profile,
         plan=plan,
     )
+
+    from veritext.report.seal import compute_seal
+    report.seal = compute_seal(report.to_dict())
 
     report_progress("Analysis complete!", 1.0)
     return report

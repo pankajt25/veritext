@@ -16,6 +16,7 @@ from veritext.ingest.pipeline import load_document
 from veritext.report.builder import build_report
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
+from veritext.report.seal import compute_seal
 from veritext.similarity.engine import check_document
 from veritext.style.linter import lint_style
 
@@ -68,7 +69,47 @@ class JobQueue:
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS job_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    data_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_job ON job_events(job_id, id)")
             conn.commit()
+
+    def add_event(self, job_id: str, event_type: str, data: Dict[str, Any]) -> int:
+        """Appends an event to the job event log."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self._get_connection() as conn:
+            cur = conn.execute(
+                "INSERT INTO job_events (job_id, event_type, data_json, created_at) VALUES (?, ?, ?, ?)",
+                (job_id, event_type, json.dumps(data), now),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_events(self, job_id: str, after_id: int = 0) -> List[Dict[str, Any]]:
+        """Fetches ordered events for a job strictly after after_id."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT id, event_type, data_json, created_at FROM job_events WHERE job_id = ? AND id > ? ORDER BY id ASC",
+                (job_id, after_id),
+            ).fetchall()
+            return [
+                {
+                    "id": r["id"],
+                    "event_type": r["event_type"],
+                    "data": json.loads(r["data_json"]),
+                    "created_at": r["created_at"],
+                }
+                for r in rows
+            ]
 
     def enqueue_job(
         self,
@@ -100,6 +141,9 @@ class JobQueue:
                 ),
             )
             conn.commit()
+
+        self.add_event(job_id, "status", {"job_id": job_id, "status": "queued", "progress": 0.0})
+
         return {
             "job_id": job_id,
             "status": "queued",
@@ -211,10 +255,26 @@ class SingleWorker:
                 options = {}
 
             logger.info(f"Worker processing job {job_id} ({file_path})")
+            self.queue.add_event(
+                job_id,
+                "status",
+                {"job_id": job_id, "status": "processing", "progress": 0.05, "message": "Job picked up by worker"},
+            )
             try:
                 report_id = f"rep_{job_id}"
                 self._execute_job(job_id, report_id, file_path, options)
                 self.queue.mark_completed(job_id, report_id)
+                self.queue.add_event(
+                    job_id,
+                    "completed",
+                    {
+                        "job_id": job_id,
+                        "status": "completed",
+                        "report_id": report_id,
+                        "progress": 1.0,
+                        "message": "Analysis successfully completed",
+                    },
+                )
                 logger.info(f"Job {job_id} successfully completed (report: {report_id})")
 
                 # Webhook dispatch
@@ -235,6 +295,17 @@ class SingleWorker:
             except Exception as e:
                 logger.exception(f"Job {job_id} failed with error: {e}")
                 self.queue.mark_failed(job_id, str(e))
+                self.queue.add_event(
+                    job_id,
+                    "failed",
+                    {
+                        "job_id": job_id,
+                        "status": "failed",
+                        "error": str(e),
+                        "progress": 1.0,
+                        "message": "Analysis failed with an error",
+                    },
+                )
                 webhook_url = job.get("webhook_url")
                 if webhook_url:
                     self._dispatch_webhook(
@@ -257,7 +328,18 @@ class SingleWorker:
         options: Dict[str, Any],
     ):
         """Executes full analysis pipeline and generates JSON, HTML, and PDF reports."""
+        self.queue.add_event(
+            job_id,
+            "progress",
+            {"step": "ingest", "progress": 0.15, "message": "Ingesting and loading document"},
+        )
         doc = load_document(Path(file_path))
+
+        self.queue.add_event(
+            job_id,
+            "progress",
+            {"step": "similarity", "progress": 0.35, "message": "Executing plagiarism and similarity engine"},
+        )
         use_offline = options.get("offline", True)
         sim_res = check_document(
             document=doc,
@@ -265,8 +347,35 @@ class SingleWorker:
             use_local=True,
             options={"skip_semantic": options.get("skip_semantic", False)},
         )
+        self.queue.add_event(
+            job_id,
+            "engine_done",
+            {"engine": "similarity", "progress": 0.55, "message": "Similarity engine completed"},
+        )
+
+        self.queue.add_event(
+            job_id,
+            "progress",
+            {"step": "integrity", "progress": 0.65, "message": "Executing document integrity checks"},
+        )
         integ_res = run_all_checks(doc, similarity_result=sim_res)
+        self.queue.add_event(
+            job_id,
+            "engine_done",
+            {"engine": "integrity", "progress": 0.75, "message": "Integrity checks completed"},
+        )
+
+        self.queue.add_event(
+            job_id,
+            "progress",
+            {"step": "style", "progress": 0.80, "message": "Running rule-based style linter"},
+        )
         style_res = lint_style(doc.clean_text)
+        self.queue.add_event(
+            job_id,
+            "engine_done",
+            {"engine": "style", "progress": 0.85, "message": "Style linter completed"},
+        )
 
         full_rep = build_report(
             document=doc,
@@ -276,6 +385,9 @@ class SingleWorker:
             settings=options,
         )
         full_rep.metadata["style"] = style_res.to_dict()
+
+        # Apply cryptographic seal
+        full_rep.seal = compute_seal(full_rep.to_dict())
 
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         # 1. JSON report

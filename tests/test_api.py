@@ -144,3 +144,57 @@ def test_get_nonexistent_job_returns_404(api_keys_file):
             headers = {"X-API-Key": key}
             resp = client.get("/jobs/nonexistent_job_99999", headers=headers)
             assert resp.status_code == 404
+
+
+def test_sse_events_auth_failure():
+    with TestClient(app) as client:
+        resp = client.get("/jobs/test_job_123/events")
+        assert resp.status_code == 401
+        assert "Missing required 'X-API-Key' header" in resp.json()["detail"]
+
+
+def test_sse_events_nonexistent_job(api_keys_file):
+    key, keys_path = api_keys_file
+    with patch("veritext.api.app.verify_api_key", return_value={"name": "test"}):
+        with TestClient(app) as client:
+            headers = {"X-API-Key": key}
+            resp = client.get("/jobs/missing_job_abc/events", headers=headers)
+            assert resp.status_code == 404
+
+
+def test_sse_event_order(api_keys_file):
+    import secrets
+    key, keys_path = api_keys_file
+    with patch("veritext.api.app.verify_api_key", return_value={"name": "test"}):
+        from veritext.api.app import queue
+
+        job_id = f"sse_{secrets.token_hex(12)}"
+        queue.enqueue_job(
+            job_id=job_id,
+            file_path="/tmp/test.txt",
+            original_filename="test.txt",
+            options={},
+        )
+        queue.add_event(job_id, "progress", {"step": "similarity", "progress": 0.4})
+        queue.add_event(job_id, "engine_done", {"engine": "similarity", "progress": 0.6})
+        queue.add_event(job_id, "completed", {"job_id": job_id, "status": "completed", "progress": 1.0})
+
+        with TestClient(app) as client:
+            headers = {"X-API-Key": key}
+            resp = client.get(f"/jobs/{job_id}/events", headers=headers)
+            assert resp.status_code == 200
+            assert "text/event-stream" in resp.headers["content-type"]
+
+            lines = resp.text.strip().split("\n")
+            event_types = [
+                line.split("event: ")[1].strip()
+                for line in lines
+                if line.startswith("event: ")
+            ]
+
+            assert len(event_types) >= 4
+            assert event_types[0] == "status"
+            assert event_types[1] == "progress"
+            assert event_types[2] == "engine_done"
+            assert event_types[3] == "completed"
+

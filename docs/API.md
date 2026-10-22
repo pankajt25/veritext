@@ -138,7 +138,51 @@ curl -X GET http://127.0.0.1:8600/jobs/7a3b4c5d6e7f8091a2b3c4d5e6f70819 \
 
 ---
 
-### 3.4 Retrieve Reports
+### 3.4 Live Event Streaming (Server-Sent Events)
+**`GET /jobs/{job_id}/events`** (Requires `X-API-Key`)
+
+Subscribes to real-time analysis progress and engine completion events via standard Server-Sent Events (`text/event-stream`).
+
+```bash
+curl -N -X GET http://127.0.0.1:8600/jobs/7a3b4c5d6e7f8091a2b3c4d5e6f70819/events \
+  -H "X-API-Key: vt_live_your_api_key_here"
+```
+
+**SSE Event Sequence:**
+```text
+event: status
+data: {"job_id": "7a3b4c5d6e7f8091a2b3c4d5e6f70819", "status": "processing", "progress": 0.05, "message": "Job picked up by worker"}
+
+event: progress
+data: {"step": "ingest", "progress": 0.15, "message": "Ingesting and loading document"}
+
+event: progress
+data: {"step": "similarity", "progress": 0.35, "message": "Executing plagiarism and similarity engine"}
+
+event: engine_done
+data: {"engine": "similarity", "progress": 0.55, "message": "Similarity engine completed"}
+
+event: progress
+data: {"step": "integrity", "progress": 0.65, "message": "Executing document integrity checks"}
+
+event: engine_done
+data: {"engine": "integrity", "progress": 0.75, "message": "Integrity checks completed"}
+
+event: progress
+data: {"step": "style", "progress": 0.8, "message": "Running rule-based style linter"}
+
+event: engine_done
+data: {"engine": "style", "progress": 0.85, "message": "Style linter completed"}
+
+event: completed
+data: {"job_id": "7a3b4c5d6e7f8091a2b3c4d5e6f70819", "status": "completed", "report_id": "rep_7a3b4c5d6e7f8091a2b3c4d5e6f70819", "progress": 1.0, "message": "Analysis successfully completed"}
+```
+
+If the job fails during execution, an `event: failed` message is dispatched with the error description.
+
+---
+
+### 3.5 Retrieve Reports
 **`GET /reports/{report_id}.json`**, **`.html`**, **`.pdf`** (Requires `X-API-Key`)
 
 ```bash

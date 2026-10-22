@@ -22,6 +22,7 @@ from veritext.report.dashboard import (
     render_heat_strip_html,
     render_portfolio_html,
 )
+from veritext.report.diff import extract_report_diffs
 from veritext.report.highlight import render_highlighted_html, render_legend_html
 from veritext.report.html_export import export_report_html
 from veritext.report.pdf_export import export_report_pdf
@@ -36,6 +37,7 @@ from veritext.review import (
     load_review_session,
     save_review_session,
 )
+from veritext.similarity.crosslang import is_crosslang_model_available
 from veritext.similarity.filters import (
     ExclusionFilters,
     add_to_allowlist,
@@ -43,6 +45,7 @@ from veritext.similarity.filters import (
     recalculate_report_filters,
     remove_from_allowlist,
 )
+from veritext.sources.clients.core import is_core_configured
 from veritext.style import check_languagetool_support, lint_style
 from veritext.ui.services import prepare_document_and_plan, run_pipeline
 
@@ -312,6 +315,21 @@ def main():
             help="Pretrained classifier weights (Hello-SimpleAI/chatgpt-detector-roberta).",
         )
 
+        crosslang_avail = is_crosslang_model_available()
+        use_crosslang = st.checkbox(
+            "Cross-Language Matching",
+            value=False,
+            disabled=not crosslang_avail,
+            help="Multilingual dense embeddings (paraphrase-multilingual-MiniLM-L12-v2).",
+        )
+        if not crosslang_avail:
+            st.caption("ℹ️ Cross-language model missing. To download: `python -m veritext.similarity --download-crosslang-model`")
+
+        if is_core_configured():
+            st.caption("🟢 CORE source client active (CORE_API_KEY detected)")
+        else:
+            st.caption("⚪ CORE source not configured (set CORE_API_KEY to enable)")
+
         min_words = st.slider(
             "Min Match Words",
             min_value=4,
@@ -444,10 +462,30 @@ def main():
 
         progress_bar = st.progress(0.0)
         status_text = st.empty()
+        live_badges = st.empty()
+        live_status = {}
 
         def update_progress(msg: str, frac: float):
             status_text.text(f"⏳ {msg}")
             progress_bar.progress(frac)
+
+        def on_live_engine_result(engine_name: str, res_obj: Any):
+            live_status[engine_name] = res_obj
+            chips = []
+            if "similarity" in live_status:
+                sim = live_status["similarity"]
+                pct = f"{sim.similarity_percentage:.1f}%" if hasattr(sim, "similarity_percentage") else "Done"
+                chips.append(f"🟢 Plagiarism: {pct}")
+            if "ai_detect" in live_status:
+                ai = live_status["ai_detect"]
+                prob = f"{ai.overall_probability:.1f}%" if hasattr(ai, "overall_probability") and ai.overall_probability is not None else "Done"
+                chips.append(f"🟣 AI Text: {prob}")
+            if "integrity" in live_status:
+                integ = live_status["integrity"]
+                f_count = sum(len(cr.findings) for cr in getattr(integ, "results", []))
+                chips.append(f"🔵 Integrity: {f_count} findings")
+            if chips:
+                live_badges.info(" | ".join(chips))
 
         def is_cancelled() -> bool:
             return bool(st.session_state.get("cancel_requested", False))
@@ -461,6 +499,7 @@ def main():
                     settings=pipeline_settings,
                     progress_callback=update_progress,
                     cancel_check=is_cancelled,
+                    live_result_callback=on_live_engine_result,
                 )
 
             st.session_state["full_report"] = report
@@ -469,6 +508,7 @@ def main():
             st.session_state["last_analyzed_file"] = uploaded_file.name
             status_text.success("✅ Analysis completed successfully!")
             progress_bar.empty()
+            live_badges.empty()
 
         except Exception as e:
             progress_bar.empty()
@@ -775,6 +815,15 @@ def main():
             f'color: #0f172a;">{html_view}</div>',
             unsafe_allow_html=True,
         )
+
+        # Side-by-Side Source Diffs
+        diff_items = extract_report_diffs(report, max_matches=10)
+        if diff_items:
+            st.markdown("---")
+            st.subheader("Side-by-Side Source Comparisons (Top Matches)")
+            st.caption("Word-level alignment of shared passages with bounded excerpts (max 1,500 characters). Click any match to view.")
+            for d in diff_items:
+                st.markdown(d.render_html_details(), unsafe_allow_html=True)
 
     # 3. TAB: SOURCES & EXCLUSIONS
     with tab_sources:

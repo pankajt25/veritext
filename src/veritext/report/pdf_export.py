@@ -7,7 +7,9 @@ from typing import Optional, Set, Union
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
+from veritext.report.diff import extract_report_diffs
 from veritext.report.models import FullReport
+from veritext.report.seal import compute_seal
 
 REPLACE_MAP = {
     "\u201c": '"',
@@ -395,6 +397,61 @@ def export_report_pdf(
         pdf.set_text_color(71, 85, 105)
         pdf.cell(0, 4, f"Flesch Reading Ease: {flesch:.1f} ({ease_label})  |  Gunning Fog Index: {fog:.1f} ({level})", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(3)
+
+    # 8d. Compact Source Diffs (Top 10 matches)
+    diff_items = extract_report_diffs(report, max_matches=10)
+    if diff_items:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 5, "Source Match Comparisons (Top 10 Matches)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(0, 4, "Bounded side-by-side excerpts showing shared passages (max 1,500 chars).", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(2)
+
+        pdf.set_font("Helvetica", "B", 7.5)
+        pdf.set_fill_color(241, 245, 249)
+        pdf.set_text_color(51, 65, 85)
+        pdf.cell(45, 5, "Source Title", border=1, fill=True)
+        pdf.cell(20, 5, "Type", border=1, fill=True)
+        pdf.cell(62, 5, "Target Excerpt", border=1, fill=True)
+        pdf.cell(63, 5, "Matched Source Reference", border=1, fill=True)
+        pdf.ln(5)
+
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(15, 23, 42)
+        for d in diff_items:
+            s_title = sanitize_text_for_pdf(d.source_title)[:25]
+            m_type = sanitize_text_for_pdf(d.match_type).upper()
+            t_exc = sanitize_text_for_pdf(d.target_excerpt)[:120]
+            if d.is_fingerprint_only or d.source_excerpt is None:
+                s_exc = "source text not stored (fingerprints only)"
+            else:
+                s_exc = sanitize_text_for_pdf(d.source_excerpt)[:120]
+
+            pdf.cell(45, 5, s_title, border=1)
+            pdf.cell(20, 5, m_type, border=1)
+            pdf.cell(62, 5, t_exc, border=1)
+            pdf.cell(63, 5, s_exc, border=1)
+            pdf.ln(5)
+        pdf.ln(4)
+
+    # 8e. Tamper-Evident Seal Block
+    seal_info = report.seal or compute_seal(report.to_dict())
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(5, 150, 105)
+    pdf.cell(0, 5, "[SEALED] Cryptographic Tamper-Evident Report Seal", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(71, 85, 105)
+    c_sha = seal_info.get("canonical_sha256", "")
+    sig = seal_info.get("signature", "")
+    pdf.multi_cell(
+        190,
+        3.8,
+        f"Algorithm: {seal_info.get('algorithm', 'HMAC-SHA256')}  |  Canonical SHA-256: {c_sha[:32]}...\n"
+        f"HMAC-SHA256 Signature: {sig[:32]}...\n"
+        f"Notice: Detects unauthorized edits without local signing key. Not legal proof. CLI: python -m veritext.report verify <file.json>",
+    )
+    pdf.ln(3)
 
     # 9. Methodology & Settings
     pdf.set_font("Helvetica", "B", 10)

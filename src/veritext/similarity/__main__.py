@@ -7,6 +7,7 @@ import sys
 from veritext.ingest.pipeline import load_document
 from veritext.planner import load_limits_config, make_plan, print_profile_and_plan
 from veritext.profile import profile_document
+from veritext.similarity.crosslang import download_crosslang_model
 from veritext.similarity.engine import check_document
 from veritext.timing import load_timing
 
@@ -16,7 +17,12 @@ def main():
         prog="python -m veritext.similarity",
         description="Inspect document for plagiarism, verbatim copy, and semantic paraphrasing",
     )
-    parser.add_argument("file", help="Path to document to check")
+    parser.add_argument("file", nargs="?", default=None, help="Path to document to check")
+    parser.add_argument(
+        "--download-crosslang-model",
+        action="store_true",
+        help="Download multilingual model for cross-language matching",
+    )
     parser.add_argument(
         "--offline",
         action="store_true",
@@ -89,6 +95,14 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.download_crosslang_model:
+        success = download_crosslang_model()
+        sys.exit(0 if success else 1)
+
+    if not args.file:
+        parser.print_help()
+        sys.exit(1)
 
     doc_path = Path(args.file).resolve()
     if not doc_path.exists():

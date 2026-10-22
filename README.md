@@ -416,7 +416,57 @@ curl -X GET http://127.0.0.1:8600/reports/<report_id>.html -H "X-API-Key: vt_liv
 - **Rubric Assessment**: Configurable JSON rubric (`data/config/rubric_default.json`) with a 0–4 scale across Originality, Citation Quality, Use of Sources, and Writing Clarity, exportable to JSON, HTML, and PDF.
 - **Grammar & Style Feedback**: Built-in rule linter for passive voice, repeated words, sentence length (>35 words), filler phrases, weak transitions, Flesch Reading Ease, and Gunning Fog index.
 - **Combined Dashboard**: Side-by-side paragraph heat strip (similarity, AI likelihood, integrity badges) and sortable/filterable cohort portfolio table with offline CSV export.
-- **Documentation**: See [docs/API.md](docs/API.md) for curl examples and LMS integration notes, [docs/FEATURES.md](docs/FEATURES.md) for a commercial platform comparison, and [docs/stage6c.md](docs/stage6c.md) for architectural details.
+
+---
+
+## Stage 6D: Source Diff, Sealed Reports, MinHash/LSH, Cross-Language, Timeline & Streaming
+
+Stage 6D introduces high-scale collusion screening, cryptographic report verification, fine-grained source diff visualization, opt-in cross-language matching, document metadata timelines, and real-time streaming interfaces.
+
+### 1. Side-by-Side Source Diff (`veritext.report.diff`)
+- Bounded excerpts (max 1,500 characters) preventing memory balloons.
+- Word-level highlighting of shared passages across exact match, near-copy, and paraphrase categories.
+- Accessible styling (distinct borders, background colours, and badges—never colour alone).
+- Safe HTML escaping (`html.escape`) and native `<details>` accordions in self-contained HTML reports and Streamlit UI; compact top-10 comparison table in PDF exports.
+- Privacy-preserving support: Fingerprints-only matches display *"source text not stored (fingerprints only)"*.
+
+### 2. Tamper-Evident Report Sealing (`veritext.report.seal`)
+- Deterministic canonical UTF-8 JSON hashing via SHA-256 and HMAC-SHA256 signature.
+- Signing key stored at `data/config/report_key` with strict `0600` permissions (gitignored).
+- CLI verification tool:
+  ```bash
+  python -m veritext.report verify data/reports/essay_20261022.json
+  ```
+  Prints `VALID` or `TAMPERED` with the exact diagnostic reason. Detects unauthorized modifications without private key access; clearly disclaimed as not legal proof.
+
+### 3. Cross-Language Matching (`veritext.similarity.crosslang`)
+- Pure-Python language heuristic detecting multi-script and non-English text.
+- Lazy-loaded `paraphrase-multilingual-MiniLM-L12-v2` with batch size $\le 16$ and cached embeddings.
+- On-demand download command (disabled by default in UI until downloaded):
+  ```bash
+  python -m veritext.similarity --download-crosslang-model
+  ```
+- Matched spans explicitly labelled as *"possible translated copy"*.
+
+### 4. MinHash & LSH Screening (`veritext.fingerprint.minhash`)
+- Pure-Python implementation with 128 permutations derived via `blake2b` modulo $2^{61}-1$.
+- Locality-Sensitive Hashing with 32 bands $\times$ 4 rows to shortlist candidate pairs in batch analysis.
+- Winnowing serves as the final ground-truth judge, guaranteeing identical collusion clusters while maintaining flat memory usage on 500+ submissions.
+
+### 5. Document Authorship Timeline (`veritext.checks.authorship`)
+- Extracts creation, modification, and revision milestones from DOCX and PDF container metadata.
+- Strictly informational (`info` severity); strictly non-accusatory tone policy.
+- Prominently disclaimed: not keystroke tracking and not proof of authorship.
+
+### 6. Optional CORE Scholarly Source (`veritext.sources.clients.core`)
+- Enabled only if `CORE_API_KEY` is present in the environment; otherwise reports as *"not configured"*.
+- Key is never printed, logged, or saved to any file.
+
+### 7. Real-Time Streaming & Server-Sent Events
+- **Streamlit**: Progressive live metric chips updating as each engine (similarity, AI, integrity, style) finishes.
+- **API SSE**: Real-time progress events at `GET /jobs/{id}/events` (`text/event-stream`).
+
+- **Documentation**: See [docs/stage6d.md](docs/stage6d.md) for full architectural specifications, [docs/API.md](docs/API.md) for SSE streaming details, and [docs/FEATURES.md](docs/FEATURES.md) for institutional comparison.
 
 ### Class Repository Privacy & Data Rights
 

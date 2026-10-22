@@ -1,5 +1,6 @@
 """FastAPI REST application for Veritext local engine."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
@@ -11,7 +12,7 @@ import secrets
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 
 from veritext.api.auth import check_rate_limit, hash_key, verify_api_key
 from veritext.api.queue import JobQueue, SingleWorker
@@ -188,6 +189,61 @@ def get_job_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)
         res["error"] = job.get("error_message")
 
     return res
+
+
+@app.get("/jobs/{job_id}/events")
+async def get_job_events(
+    job_id: str,
+    request: Request,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Server-Sent Events (SSE) stream reporting real-time job progress and completion."""
+    clean_id = re.sub(r"[^a-zA-Z0-9_\-]", "", job_id)
+    job = queue.get_job(clean_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job '{job_id}' not found.")
+
+    async def event_generator():
+        last_id = 0
+        terminal = False
+        while not terminal:
+            if await request.is_disconnected():
+                break
+
+            events = queue.get_events(clean_id, after_id=last_id)
+            for ev in events:
+                last_id = ev["id"]
+                ev_type = ev["event_type"]
+                payload = json.dumps(ev["data"])
+                yield f"event: {ev_type}\ndata: {payload}\n\n"
+
+                if ev_type in ("completed", "failed"):
+                    terminal = True
+                    break
+
+            if terminal:
+                break
+
+            cur_job = queue.get_job(clean_id)
+            if cur_job and cur_job["status"] in ("completed", "failed") and not events:
+                if cur_job["status"] == "completed":
+                    rep_id = cur_job.get("report_id")
+                    yield f"event: completed\ndata: {json.dumps({'job_id': clean_id, 'status': 'completed', 'report_id': rep_id, 'progress': 1.0})}\n\n"
+                else:
+                    yield f"event: failed\ndata: {json.dumps({'job_id': clean_id, 'status': 'failed', 'error': cur_job.get('error_message')})}\n\n"
+                break
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/reports/{report_id}.json")

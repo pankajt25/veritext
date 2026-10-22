@@ -406,6 +406,23 @@ def make_plan(
             coverage_description=sem_desc,
         )
 
+    # 5. Optional Cross-Language Matching
+    crosslang_enabled = bool(opts.get("use_crosslang", False))
+    if crosslang_enabled:
+        crosslang_est_seconds = max(0.2, round((total_words / 1000.0) * 0.85, 2))
+        engines["crosslang"] = EnginePlan(
+            engine="crosslang",
+            enabled=True,
+            reason="Cross-language multilingual embedding check",
+            words_to_analyze=total_words,
+            total_words=total_words,
+            coverage_percent=100.0 if total_words > 0 else 0.0,
+            estimated_seconds=crosslang_est_seconds,
+            sampling_mode="full",
+            word_ranges=[(0, total_words)] if total_words > 0 else [],
+            coverage_description="cross-language multilingual matching enabled",
+        )
+
     total_est = sum(e.estimated_seconds for e in engines.values() if e.enabled)
     if total_est > 15 * 60:
         warnings.append(

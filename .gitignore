@@ -42,6 +42,7 @@ data/class_repository/*
 data/reviews/*
 !data/reviews/.gitkeep
 data/config/api_keys.json
+data/config/report_key*
 data/api_jobs.sqlite
 *.tmp
 

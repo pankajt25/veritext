@@ -7,6 +7,7 @@ returning an aggregated IntegrityReport.
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+from veritext.checks.authorship import check_authorship_timeline
 from veritext.checks.citations import check_citations_and_quotes
 from veritext.checks.code_similarity import SUPPORTED_CODE_EXTENSIONS, check_code_similarity
 from veritext.checks.hidden import check_hidden_content
@@ -109,6 +110,10 @@ def run_all_checks(
             custom_file=custom_tortured_phrases,
         )
         results.append(res_spinner)
+
+        # 5. Document authorship metadata timeline check
+        res_authorship = check_authorship_timeline(doc)
+        results.append(res_authorship)
 
     # Calculate overall status and summary
     total_findings = sum(len(r.findings) for r in results)

@@ -95,7 +95,10 @@ def handle_stats(args):
     print("=" * 50)
 
 
-def main():
+from typing import List, Optional
+
+
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="python -m veritext.sources",
         description="Manage local reference library and perform candidate source searches",
@@ -135,7 +138,7 @@ def main():
     )
     stats_parser.set_defaults(func=handle_stats)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     args.func(args)
 
 

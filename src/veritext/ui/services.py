@@ -126,7 +126,7 @@ def run_pipeline(
             sim_result = check_document(
                 document=doc,
                 use_online=use_online,
-                use_local=True,
+                use_local=bool(opts.get("use_local", True)),
                 options={
                     "skip_semantic": not use_semantic,
                     "min_words": min_words,

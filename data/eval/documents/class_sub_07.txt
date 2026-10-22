@@ -1,0 +1,3 @@
+Inverted Indexes in Full-Text Search and Information Retrieval.
+
+Inverted indexes map individual vocabulary terms to posting lists containing document identifiers and intra-document term positions. Search engines compress posting lists using variable-byte or delta encoding to minimize disk memory footprints during distributed querying. Conjunctive queries intersect posting lists sequentially, ranking candidate documents using TF-IDF or BM25 relevance scoring heuristics.

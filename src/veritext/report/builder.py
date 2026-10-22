@@ -188,10 +188,18 @@ def build_report(
         summary_parts.append(sim_summary)
 
     if ai:
-        ai_prob = getattr(ai, "overall_probability", getattr(ai, "ai_probability", None))
-        ai_pct_str = f"{ai_prob:.1f}%" if ai_prob is not None else "N/A"
-        ai_conf = getattr(ai, "confidence_band", getattr(ai, "confidence", "none")).upper()
-        summary_parts.append(f"AI Probability: {ai_pct_str} ({ai_conf} confidence)")
+        status = getattr(ai, "status", "success")
+        if status in ("insufficient text", "insufficient_text"):
+            summary_parts.append("AI Detection: Insufficient text (under 150 words, not scored)")
+        else:
+            ai_prob = getattr(ai, "overall_probability", getattr(ai, "ai_probability", None))
+            ai_conf = getattr(ai, "confidence_band", getattr(ai, "confidence", "none")).lower()
+            if ai_prob is not None:
+                summary_parts.append(f"AI probability {ai_prob:.1f}% (confidence in this estimate: {ai_conf})")
+            else:
+                summary_parts.append("AI Detection: Not run")
+    else:
+        summary_parts.append("AI Detection: Not run")
 
     if integrity:
         high_cnt = sum(sum(1 for f in r.findings if f.severity == "high") for r in integrity.results)

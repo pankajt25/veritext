@@ -1,0 +1,3 @@
+LSM Trees versus Traditional In-Place Indexing Mechanisms.
+
+Log-Structured Merge trees buffer incoming write operations in memory tables before flushing sequential sorted runs to secondary disk storage. Compaction algorithms continuously merge overlapping disk runs in the background to bound read amplification and reclaim obsolete deleted key versions. This architectural separation optimizes write throughput by converting random disk updates into high-speed sequential streaming writes.

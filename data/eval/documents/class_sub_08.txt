@@ -1,0 +1,3 @@
+Memory-Optimized Indexing for In-Memory Database Systems.
+
+In-memory database engines dispense with traditional disk page buffer management, designing index structures optimized for processor cache lines. The Masstree and Adaptive Radix Tree architectures minimize pointer indirection and cache misses through trie-based prefix compression. Concurrent lock-free read transactions traverse memory indexes without latch contention, maximizing multi-core processor utilization.

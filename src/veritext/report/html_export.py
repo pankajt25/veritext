@@ -39,10 +39,22 @@ def export_report_html(
 
     # 1. Metric values
     sim_pct = f"{report.similarity.similarity_percentage:.1f}%" if report.similarity else "N/A"
-    ai_prob = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", None)) if report.ai_detect else None
-    ai_pct = f"{ai_prob:.1f}%" if ai_prob is not None else "N/A"
-    ai_conf = getattr(report.ai_detect, "confidence_band", getattr(report.ai_detect, "confidence", "N/A")).upper() if report.ai_detect else "N/A"
-    ai_label = getattr(report.ai_detect, "status", getattr(report.ai_detect, "label", "")) if report.ai_detect else ""
+    if report.ai_detect:
+        ai_st = getattr(report.ai_detect, "status", "success")
+        if ai_st in ("insufficient text", "insufficient_text"):
+            ai_pct = "Insufficient text (under 150 words, not scored)"
+            ai_conf_display = "Under 150 words"
+            ai_label = "Not scored"
+        else:
+            ai_prob = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", None))
+            ai_pct = f"{ai_prob:.1f}%" if ai_prob is not None else "Not run"
+            ai_conf = getattr(report.ai_detect, "confidence_band", getattr(report.ai_detect, "confidence", "none")).lower()
+            ai_conf_display = f"confidence in this estimate: {ai_conf}"
+            ai_label = getattr(report.ai_detect, "status", getattr(report.ai_detect, "label", ""))
+    else:
+        ai_pct = "Not run"
+        ai_conf_display = "Engine not executed"
+        ai_label = ""
 
     high_cnt = 0
     warn_cnt = 0
@@ -476,8 +488,8 @@ def export_report_html(
       </div>
       <div class="card">
         <div class="metric-sub">AI Content Probability</div>
-        <div class="metric-val" style="color: #7c3aed;">{ai_pct}</div>
-        <div class="metric-sub">{ai_conf} Confidence &bull; {ai_label}</div>
+        <div class="metric-val" style="color: #7c3aed; font-size: {'1.05rem' if len(ai_pct) > 10 else '1.8rem'};">{ai_pct}</div>
+        <div class="metric-sub">{ai_conf_display}</div>
       </div>
       <div class="card">
         <div class="metric-sub">Integrity Findings</div>
@@ -489,9 +501,6 @@ def export_report_html(
     <div class="disclaimer-box">
       <strong>Responsible Use & Limitations Notice:</strong><br />
       {disclaimer_text}
-      <div style="margin-top:6px; font-size:0.85rem;">
-        Note: Verification scores are indicators to guide human pedagogical review. They do not prove misconduct or generative authorship.
-      </div>
     </div>
 
     {seal_section}

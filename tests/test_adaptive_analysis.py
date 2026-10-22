@@ -233,6 +233,7 @@ def test_timing_loading_fallback_and_smoothing(tmp_path: Path):
 
 # --- A4. CHUNKED AI DETECTION ON 60,000 WORDS (MOCKED, FLAT MEMORY) ---
 
+@pytest.mark.slow
 def test_chunked_ai_detection_memory_and_chunk_size():
     # 60,000 synthetic words
     synthetic_60k = "The statistical analysis revealed significant variance in test distributions. " * 6000
@@ -353,12 +354,13 @@ def test_cancellation_preserves_finished_results():
         file_type="txt",
     )
 
-    report = run_pipeline(
-        target="data/samples/sample_academic.txt",
-        filename="sample_academic.txt",
-        settings={"use_ai": True, "use_integrity": True, "use_online": False},
-        cancel_check=cancel_after_first_engine,
-    )
+    with patch("veritext.ui.services.detect_ai") as mock_ai:
+        report = run_pipeline(
+            target="data/samples/sample_academic.txt",
+            filename="sample_academic.txt",
+            settings={"use_ai": True, "use_integrity": True, "use_online": False, "use_local": False},
+            cancel_check=cancel_after_first_engine,
+        )
 
     assert report is not None
     assert report.profile is not None

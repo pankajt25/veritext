@@ -1,0 +1,5 @@
+# Development, testing, and benchmark requirements
+pytest>=7.4.0
+pytest-cov>=4.1.0
+matplotlib>=3.7.0
+ruff>=0.1.0

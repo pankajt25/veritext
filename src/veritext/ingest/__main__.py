@@ -7,7 +7,10 @@ from pathlib import Path
 from veritext.ingest.pipeline import load_document
 
 
-def main():
+from typing import List, Optional
+
+
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="python -m veritext.ingest",
         description="Ingest and inspect academic documents (.docx, .pdf, .tex, .txt, .md)",
@@ -18,7 +21,7 @@ def main():
         action="store_true",
         help="Print all extracted sentences with offsets",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     file_path = Path(args.file)
     if not file_path.exists():

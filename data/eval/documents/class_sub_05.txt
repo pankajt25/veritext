@@ -1,0 +1,3 @@
+Spatial Indexing Techniques for Geospatial Information Systems.
+
+R-tree indexing organizes multidimensional spatial objects into hierarchically nested minimum bounding boxes. Spatial query processors traverse the bounding box tree to prune non-intersecting regions rapidly during polygon overlap and nearest-neighbor calculations. Maintaining compact bounding boxes during dynamic insertions prevents overlapping branch degradation in high-density urban geographic information datasets.

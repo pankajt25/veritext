@@ -25,6 +25,7 @@ import tokenize
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from veritext.checks.models import CheckResult, Finding
+from veritext.ingest.models import Document
 from veritext.fingerprint.hashing import hash_kgram
 from veritext.fingerprint.kgrams import generate_kgrams
 from veritext.fingerprint.winnow import winnow_hashes

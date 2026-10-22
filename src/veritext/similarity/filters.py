@@ -379,5 +379,3 @@ def recalculate_similarity_with_review(
         active_filters.ignored_span_keys.update(ignored_ids)
 
     return recalculate_similarity(similarity, clean_text, active_filters)
-
-    return report

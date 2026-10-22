@@ -1,0 +1,3 @@
+High-Throughput Write Architectures: Analysis of LSM-Tree Compaction.
+
+Log-Structured Merge trees buffer incoming write operations in memory tables before flushing sequential sorted runs to secondary disk storage. Compaction algorithms continuously merge overlapping disk runs in the background to bound read amplification and reclaim obsolete deleted key versions. By transforming random disk modifications into sequential log flushes, LSM architectures achieve exceptional write performance in modern NoSQL systems.

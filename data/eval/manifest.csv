@@ -1,0 +1,111 @@
+file,group,expected_plagiarism,expected_ai,expected_spinner,expected_collusion_group,notes
+copy_01.txt,a_copies,yes,no,no,none,Verbatim copy of ref_01.txt
+copy_02.txt,a_copies,yes,no,no,none,Verbatim copy of ref_02.txt
+copy_03.txt,a_copies,yes,no,no,none,Verbatim copy of ref_03.txt
+copy_04.txt,a_copies,yes,no,no,none,Verbatim copy of ref_04.txt
+copy_05.txt,a_copies,yes,no,no,none,Verbatim copy of ref_05.txt
+copy_06.txt,a_copies,yes,no,no,none,Verbatim copy of ref_06.txt
+copy_07.txt,a_copies,yes,no,no,none,Verbatim copy of ref_07.txt
+copy_08.txt,a_copies,yes,no,no,none,Verbatim copy of ref_08.txt
+copy_09.txt,a_copies,yes,no,no,none,Lightly edited copy of ref_09.txt
+copy_10.txt,a_copies,yes,no,no,none,Lightly edited copy of ref_10.txt
+copy_11.txt,a_copies,yes,no,no,none,Homoglyph obfuscated copy of ref_01.txt
+copy_12.txt,a_copies,yes,no,no,none,Homoglyph obfuscated copy of ref_02.txt
+copy_13.txt,a_copies,yes,no,no,none,Homoglyph obfuscated copy of ref_03.txt
+copy_14.txt,a_copies,yes,no,no,none,Zero-width space obfuscated copy of ref_04.txt
+copy_15.txt,a_copies,yes,no,no,none,Zero-width space obfuscated copy of ref_05.txt
+para_01.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_01.txt
+para_02.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_02.txt
+para_03.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_03.txt
+para_04.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_04.txt
+para_05.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_05.txt
+para_06.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_06.txt
+para_07.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_07.txt
+para_08.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_08.txt
+para_09.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_09.txt
+para_10.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_10.txt
+para_11.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_11.txt
+para_12.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_12.txt
+para_13.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_13.txt
+para_14.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_14.txt
+para_15.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_15.txt
+orig_01.txt,c_original,no,no,no,none,Fully original topic 01
+orig_02.txt,c_original,no,no,no,none,Fully original topic 02
+orig_03.txt,c_original,no,no,no,none,Fully original topic 03
+orig_04.txt,c_original,no,no,no,none,Fully original topic 04
+orig_05.txt,c_original,no,no,no,none,Fully original topic 05
+orig_06.txt,c_original,no,no,no,none,Fully original topic 06
+orig_07.txt,c_original,no,no,no,none,Fully original topic 07
+orig_08.txt,c_original,no,no,no,none,Fully original topic 08
+orig_09.txt,c_original,no,no,no,none,Fully original topic 09
+orig_10.txt,c_original,no,no,no,none,Fully original topic 10
+orig_11.txt,c_original,no,no,no,none,Fully original topic 11
+orig_12.txt,c_original,no,no,no,none,Fully original topic 12
+orig_13.txt,c_original,no,no,no,none,Fully original topic 13
+orig_14.txt,c_original,no,no,no,none,Fully original topic 14
+orig_15.txt,c_original,no,no,no,none,Fully original topic 15
+ai_01.txt,d_ai_style,no,yes,no,none,AI-style text 01
+ai_02.txt,d_ai_style,no,yes,no,none,AI-style text 02
+ai_03.txt,d_ai_style,no,yes,no,none,AI-style text 03
+ai_04.txt,d_ai_style,no,yes,no,none,AI-style text 04
+ai_05.txt,d_ai_style,no,yes,no,none,AI-style text 05
+ai_06.txt,d_ai_style,no,yes,no,none,AI-style text 06
+ai_07.txt,d_ai_style,no,yes,no,none,AI-style text 07
+ai_08.txt,d_ai_style,no,yes,no,none,AI-style text 08
+ai_09.txt,d_ai_style,no,yes,no,none,AI-style text 09
+ai_10.txt,d_ai_style,no,yes,no,none,AI-style text 10
+ai_11.txt,d_ai_style,no,yes,no,none,AI-style text 11
+ai_12.txt,d_ai_style,no,yes,no,none,AI-style text 12
+ai_13.txt,d_ai_style,no,yes,no,none,AI-style text 13
+ai_14.txt,d_ai_style,no,yes,no,none,AI-style text 14
+ai_15.txt,d_ai_style,no,yes,no,none,AI-style text 15
+non_native_01.txt,e_non_native,no,no,no,none,Non-native ESL human writer 01
+non_native_02.txt,e_non_native,no,no,no,none,Non-native ESL human writer 02
+non_native_03.txt,e_non_native,no,no,no,none,Non-native ESL human writer 03
+non_native_04.txt,e_non_native,no,no,no,none,Non-native ESL human writer 04
+non_native_05.txt,e_non_native,no,no,no,none,Non-native ESL human writer 05
+non_native_06.txt,e_non_native,no,no,no,none,Non-native ESL human writer 06
+non_native_07.txt,e_non_native,no,no,no,none,Non-native ESL human writer 07
+non_native_08.txt,e_non_native,no,no,no,none,Non-native ESL human writer 08
+non_native_09.txt,e_non_native,no,no,no,none,Non-native ESL human writer 09
+non_native_10.txt,e_non_native,no,no,no,none,Non-native ESL human writer 10
+spinner_01.txt,f_spinner,no,no,yes,none,Tortured phrases document 01
+spinner_02.txt,f_spinner,no,no,yes,none,Tortured phrases document 02
+spinner_03.txt,f_spinner,no,no,yes,none,Tortured phrases document 03
+spinner_04.txt,f_spinner,no,no,yes,none,Tortured phrases document 04
+spinner_05.txt,f_spinner,no,no,yes,none,Tortured phrases document 05
+spinner_06.txt,f_spinner,no,no,yes,none,Tortured phrases document 06
+spinner_07.txt,f_spinner,no,no,yes,none,Tortured phrases document 07
+spinner_08.txt,f_spinner,no,no,yes,none,Tortured phrases document 08
+spinner_09.txt,f_spinner,no,no,yes,none,Tortured phrases document 09
+spinner_10.txt,f_spinner,no,no,yes,none,Tortured phrases document 10
+spinner_ctrl_01.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 01
+spinner_ctrl_02.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 02
+spinner_ctrl_03.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 03
+spinner_ctrl_04.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 04
+spinner_ctrl_05.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 05
+spinner_ctrl_06.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 06
+spinner_ctrl_07.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 07
+spinner_ctrl_08.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 08
+spinner_ctrl_09.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 09
+spinner_ctrl_10.txt,f_spinner_control,no,no,no,none,Clean control without tortured phrases 10
+class_sub_01.txt,g_class_submissions,yes,no,no,pair_1,Synthetic class submission 01 (pair_1)
+class_sub_02.txt,g_class_submissions,yes,no,no,pair_1,Synthetic class submission 02 (pair_1)
+class_sub_03.txt,g_class_submissions,yes,no,no,pair_2,Synthetic class submission 03 (pair_2)
+class_sub_04.txt,g_class_submissions,yes,no,no,pair_2,Synthetic class submission 04 (pair_2)
+class_sub_05.txt,g_class_submissions,no,no,no,none,Synthetic class submission 05 (none)
+class_sub_06.txt,g_class_submissions,no,no,no,none,Synthetic class submission 06 (none)
+class_sub_07.txt,g_class_submissions,no,no,no,none,Synthetic class submission 07 (none)
+class_sub_08.txt,g_class_submissions,no,no,no,none,Synthetic class submission 08 (none)
+seal_report_01.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 01
+seal_report_02.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 02
+seal_report_03.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 03
+seal_report_04.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 04
+seal_report_05.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 05
+seal_report_06.json,h_seal_reports,no,no,no,none,Cryptographically sealed report 06
+trans_01.txt,h_translations,yes,no,no,none,Multilingual translation 01 (ES/FR)
+trans_02.txt,h_translations,yes,no,no,none,Multilingual translation 02 (ES/FR)
+trans_03.txt,h_translations,yes,no,no,none,Multilingual translation 03 (ES/FR)
+trans_04.txt,h_translations,yes,no,no,none,Multilingual translation 04 (ES/FR)
+trans_05.txt,h_translations,yes,no,no,none,Multilingual translation 05 (ES/FR)
+trans_06.txt,h_translations,yes,no,no,none,Multilingual translation 06 (ES/FR)

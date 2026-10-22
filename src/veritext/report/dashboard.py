@@ -61,7 +61,8 @@ def generate_paragraph_heat_strip(
     ai_sentences = []
     overall_ai_prob = 0.0
     if ai_detect:
-        overall_ai_prob = getattr(ai_detect, "overall_probability", 0.0)
+        raw_prob = getattr(ai_detect, "overall_probability", 0.0)
+        overall_ai_prob = float(raw_prob) if raw_prob is not None else 0.0
         ai_sentences = getattr(ai_detect, "sentences", [])
 
     # Pre-extract integrity findings
@@ -166,7 +167,7 @@ def generate_paragraph_heat_strip(
                 "length": p_len,
                 "snippet": snippet,
                 "similarity_percentage": round(sim_pct, 1),
-                "ai_probability": round(ai_pct, 1),
+                "ai_probability": round(ai_pct, 1) if ai_pct is not None else 0.0,
                 "integrity_flags": flags,
                 "style_issues_count": s_count,
                 "review_status": para_review,

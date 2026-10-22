@@ -1,0 +1,36 @@
+# Git and version control
+.git
+.gitignore
+.github
+
+# Python environment and caches
+.venv
+venv
+ENV
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.coverage
+htmlcov
+
+# Local data, private user files, uploads and reports
+data/cache/*
+data/uploads/*
+data/reports/*
+data/class_repos/*
+data/reviews/*
+data/config/report_key
+data/eval/*
+
+# Antigravity artifacts and logs
+brain/
+.system_generated/
+*.log
+
+# Docker and IDE
+.dockerignore
+Dockerfile
+.vscode
+.idea

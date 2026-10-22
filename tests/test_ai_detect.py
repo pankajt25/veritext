@@ -44,6 +44,7 @@ def test_stylometric_features_math():
     assert empty_feats["sentence_length_mean"] == 0.0
 
 
+@pytest.mark.slow
 def test_lm_features_mocked():
     """Verifies perplexity, log-rank, and burstiness mathematics with a mocked tokenizer and model."""
     import torch

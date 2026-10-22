@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from typing import List
+from typing import List, Optional
 
 from veritext.checks.code_similarity import compare_code_directory
 from veritext.checks.runner import run_all_checks

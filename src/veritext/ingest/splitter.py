@@ -81,20 +81,35 @@ def _is_heading_line(line: str, next_line: str) -> bool:
     return False
 
 
+_PUNKT_INITIALIZED = False
+_PUNKT_TOKENIZER = None
+
+
+def _get_punkt_tokenizer():
+    """Lazily initializes and caches NLTK PunktSentenceTokenizer once."""
+    global _PUNKT_INITIALIZED, _PUNKT_TOKENIZER
+    if not _PUNKT_INITIALIZED:
+        _PUNKT_INITIALIZED = True
+        try:
+            import nltk
+            try:
+                nltk.data.find("tokenizers/punkt")
+            except (LookupError, OSError):
+                nltk.download("punkt", quiet=True)
+            try:
+                nltk.data.find("tokenizers/punkt_tab")
+            except (LookupError, OSError):
+                nltk.download("punkt_tab", quiet=True)
+            import nltk.tokenize
+            _PUNKT_TOKENIZER = nltk.tokenize.PunktSentenceTokenizer()
+        except Exception:
+            _PUNKT_TOKENIZER = None
+    return _PUNKT_TOKENIZER
+
+
 def _ensure_nltk_punkt():
     """Ensures NLTK punkt tokenizer models are available."""
-    try:
-        import nltk
-        try:
-            nltk.data.find("tokenizers/punkt")
-        except (LookupError, OSError):
-            nltk.download("punkt", quiet=True)
-        try:
-            nltk.data.find("tokenizers/punkt_tab")
-        except (LookupError, OSError):
-            nltk.download("punkt_tab", quiet=True)
-    except Exception:
-        pass
+    _get_punkt_tokenizer()
 
 
 def split_paragraphs(text: str) -> List[Paragraph]:
@@ -161,13 +176,7 @@ def split_sentences(text: str) -> List[Sentence]:
     if not text or not text.strip():
         return sentences
 
-    _ensure_nltk_punkt()
-
-    try:
-        import nltk.tokenize
-        tokenizer = nltk.tokenize.PunktSentenceTokenizer()
-    except Exception:
-        tokenizer = None
+    tokenizer = _get_punkt_tokenizer()
 
     paragraphs = split_paragraphs(text)
     if not paragraphs:

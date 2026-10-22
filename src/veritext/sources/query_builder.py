@@ -3,8 +3,6 @@
 import re
 from typing import List, Optional, Set
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-
 from veritext.ingest.models import Document, Paragraph
 from veritext.sources.models import Query
 
@@ -31,6 +29,7 @@ def extract_key_phrases(
     chunks = [re.sub(r"[^\w\s-]", " ", c) for c in raw_chunks]
 
     try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
         vectorizer = TfidfVectorizer(
             ngram_range=(min_n, max_n),
             stop_words="english",

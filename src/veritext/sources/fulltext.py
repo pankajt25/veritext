@@ -26,7 +26,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
 
-import pdfplumber
 import requests
 
 from veritext.fingerprint.index import FingerprintIndex
@@ -271,6 +270,7 @@ class PoliteSecureDownloader:
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extracts plain text from PDF bytes using pdfplumber."""
+    import pdfplumber
     pages_text = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page in pdf.pages:

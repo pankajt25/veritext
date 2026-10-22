@@ -9,6 +9,7 @@ Features:
 
 import io
 from pathlib import Path
+from typing import Any, Optional
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -299,6 +300,7 @@ def main():
         use_integrity = st.checkbox("Integrity Checks", value=True, help="Hidden formatting, homoglyphs, citations, and text spinners.")
         use_online = st.checkbox("Online Source Search", value=False, help="Search open repositories (arXiv, OpenAlex, Crossref, Wikipedia).")
         use_semantic = st.checkbox("Semantic Paraphrase Check", value=False, help="Dense vector embedding search (all-MiniLM-L6-v2).")
+        st.caption("Turn this on to catch reworded text; it is slower on this machine.")
 
         use_fulltext = st.checkbox(
             "Fetch full text of top matches",
@@ -614,11 +616,16 @@ def main():
             st.metric("Similarity Score", sim_val, sub_label)
 
         with m2:
-            ai_prob = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", None)) if report.ai_detect else None
-            ai_val = f"{ai_prob:.1f}%" if ai_prob is not None else "N/A"
-            ai_conf = getattr(report.ai_detect, "confidence_band", getattr(report.ai_detect, "confidence", "N/A")).upper() if report.ai_detect else "N/A"
-            ai_status = getattr(report.ai_detect, "status", getattr(report.ai_detect, "label", "N/A")) if report.ai_detect else "N/A"
-            st.metric("AI Content Probability", ai_val, f"{ai_conf} ({ai_status})")
+            if not report.ai_detect:
+                st.metric("AI Content Probability", "Not run", "Engine not executed")
+            elif getattr(report.ai_detect, "status", "success") in ("insufficient text", "insufficient_text"):
+                st.metric("AI Content Probability", "Insufficient text (under 150 words, not scored)", "Under 150 words")
+            else:
+                ai = report.ai_detect
+                ai_prob = getattr(ai, "overall_probability", getattr(ai, "ai_probability", None))
+                ai_val = f"{ai_prob:.1f}%" if ai_prob is not None else "Not run"
+                ai_conf = getattr(ai, "confidence_band", getattr(ai, "confidence", "none")).lower()
+                st.metric("AI Content Probability", ai_val, f"confidence in this estimate: {ai_conf}")
 
         with m3:
             high_cnt = sum(sum(1 for f in r.findings if f.severity == "high") for r in report.integrity.results) if report.integrity else 0
@@ -881,15 +888,15 @@ def main():
     with tab_ai:
         st.subheader("AI Content Stylometric & Language Model Analysis")
         if not report.ai_detect:
-            st.info("AI detection was not executed for this document.")
-        elif report.ai_detect.status == "insufficient_text":
-            st.warning("⚠️ Insufficient text: Document contains under 150 words.")
+            st.info("AI detection was not executed for this document (Not run).")
+        elif getattr(report.ai_detect, "status", "success") in ("insufficient text", "insufficient_text"):
+            st.warning("⚠️ Insufficient text (under 150 words, not scored)")
         else:
             ai = report.ai_detect
             c1, c2 = st.columns(2)
             with c1:
                 st.metric("Overall AI Probability", f"{ai.overall_probability:.1f}%")
-                st.write(f"**Confidence Band:** `{ai.confidence_band.upper()}`")
+                st.write(f"**Confidence in this estimate:** `{ai.confidence_band.lower()}`")
                 st.write(f"**Mode:** `{ai.mode}`")
                 if ai.reduced_confidence:
                     st.caption("ℹ️ Operating in stylometry fallback mode (reduced confidence).")

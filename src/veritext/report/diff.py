@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import difflib
 import html
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 MAX_EXCERPT_CHARS = 1500
 

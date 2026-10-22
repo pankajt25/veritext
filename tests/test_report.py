@@ -380,6 +380,7 @@ def test_services_run_pipeline_profile_and_plan():
 # 7. Streamlit UI Smoke Test (AppTest)
 # ==============================================================================
 
+@pytest.mark.slow
 def test_streamlit_app_smoke():
     app_path = Path(__file__).resolve().parent.parent / "src" / "veritext" / "ui" / "app.py"
     at = AppTest.from_file(str(app_path))
@@ -419,3 +420,55 @@ def test_report_cli_smoke(sample_report):
         assert len(json_files) == 1
         assert len(html_files) == 1
         assert len(pdf_files) == 1
+
+
+# ==============================================================================
+# 9. Display Polish Tests (Task 4)
+# ==============================================================================
+
+def test_report_polish_insufficient_text_and_not_run():
+    """Validates that AI status 'insufficient text' and 'not run' display accurately across report formats."""
+    # 1. AI result with status "insufficient text"
+    ai_short = AIResult(
+        status="insufficient text",
+        word_count=45,
+        overall_probability=None,
+        confidence_band="none",
+        reduced_confidence=True,
+        mode="stylometry_only",
+        sentences=[],
+    )
+    rep_short = build_report("Small doc text under 150 words.", ai=ai_short)
+    assert "Insufficient text (under 150 words, not scored)" in rep_short.summary
+
+    # HTML export display
+    html_short = export_report_html(rep_short)
+    assert "Insufficient text (under 150 words, not scored)" in html_short
+    # Check disclaimer occurs only once (no duplicate Note line)
+    assert html_short.count("Verification scores are indicators to guide human pedagogical review") == 0
+    assert html_short.count("Disclaimer: Veritext provides statistical indicators") == 1
+
+    # PDF export display
+    pdf_short = export_report_pdf(rep_short)
+    assert len(pdf_short) > 0
+
+    # 2. AI result Not Run (ai=None)
+    rep_no_ai = build_report("Document without AI check run.", ai=None)
+    assert "AI Detection: Not run" in rep_no_ai.summary
+    html_no_ai = export_report_html(rep_no_ai)
+    assert "Not run" in html_no_ai
+
+    # 3. AI result with high confidence and low probability formatting
+    ai_low = AIResult(
+        status="success",
+        word_count=500,
+        overall_probability=1.9,
+        confidence_band="high",
+        reduced_confidence=False,
+        mode="full",
+        sentences=[],
+    )
+    rep_low = build_report("Full document content with verified human authorship.", ai=ai_low)
+    assert "AI probability 1.9% (confidence in this estimate: high)" in rep_low.summary
+    html_low = export_report_html(rep_low)
+    assert "confidence in this estimate: high" in html_low

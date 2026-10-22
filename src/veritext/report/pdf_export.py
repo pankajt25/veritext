@@ -125,24 +125,37 @@ def export_report_pdf(
         pdf.rect(90, start_y + 1, fill_w, 4, style="F")
 
     # AI Probability Gauge
-    ai_raw = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", 0.0)) if report.ai_detect else 0.0
-    ai_val = float(ai_raw) if ai_raw is not None else 0.0
-    ai_conf = getattr(report.ai_detect, "confidence_band", getattr(report.ai_detect, "confidence", "N/A")).upper() if report.ai_detect else "N/A"
     pdf.set_xy(16, start_y + 10)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(71, 85, 105)
     pdf.cell(50, 5, "AI-Text Probability:", new_x=XPos.RIGHT, new_y=YPos.TOP)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(124, 58, 237)
-    pdf.cell(20, 5, f"{ai_val:.1f}%", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
-    pdf.set_xy(90, start_y + 11)
-    pdf.set_fill_color(226, 232, 240)
-    pdf.rect(90, start_y + 11, 95, 4, style="F")
-    if ai_val > 0:
-        fill_w = min(95.0, (ai_val / 100.0) * 95.0)
-        pdf.set_fill_color(124, 58, 237)
-        pdf.rect(90, start_y + 11, fill_w, 4, style="F")
+    if not report.ai_detect:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(100, 5, "Not run", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    elif getattr(report.ai_detect, "status", "success") in ("insufficient text", "insufficient_text"):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(120, 5, "Insufficient text (under 150 words, not scored)", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    else:
+        ai_raw = getattr(report.ai_detect, "overall_probability", getattr(report.ai_detect, "ai_probability", 0.0))
+        ai_val = float(ai_raw) if ai_raw is not None else 0.0
+        ai_conf = getattr(report.ai_detect, "confidence_band", getattr(report.ai_detect, "confidence", "none")).lower()
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(124, 58, 237)
+        pdf.cell(18, 5, f"{ai_val:.1f}%", new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(55, 5, f"(confidence in this estimate: {ai_conf})", new_x=XPos.RIGHT, new_y=YPos.TOP)
+
+        pdf.set_xy(140, start_y + 11)
+        pdf.set_fill_color(226, 232, 240)
+        pdf.rect(140, start_y + 11, 45, 4, style="F")
+        if ai_val > 0:
+            fill_w = min(45.0, (ai_val / 100.0) * 45.0)
+            pdf.set_fill_color(124, 58, 237)
+            pdf.rect(140, start_y + 11, fill_w, 4, style="F")
 
     # Integrity Findings Summary
     high_cnt = sum(sum(1 for f in r.findings if f.severity == "high") for r in report.integrity.results) if report.integrity else 0
@@ -166,8 +179,7 @@ def export_report_pdf(
     pdf.set_draw_color(253, 230, 138)
     disc_text = (
         "LIMITATIONS & RESPONSIBLE USE NOTICE: Verification scores are automated indicators to guide "
-        "human pedagogical review and do not prove misconduct or generative authorship. "
-        "Note: Characters outside the standard Latin character set were replaced with '?' for PDF rendering compatibility."
+        "human pedagogical review and do not prove misconduct or generative authorship."
     )
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(146, 64, 14)

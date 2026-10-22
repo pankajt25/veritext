@@ -3,7 +3,7 @@
 import logging
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from veritext.ai_detect.ensemble import (
     calculate_ensemble_score,

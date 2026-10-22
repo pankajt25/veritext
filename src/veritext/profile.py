@@ -138,11 +138,11 @@ def profile_document(document: Union[Document, str, Path]) -> DocumentProfile:
         if doc_path.exists() and doc_path.is_file():
             doc = load_document(doc_path)
         else:
-            from veritext.ingest.splitter import split_paragraphs, split_sentences
+            from veritext.ingest.models import Paragraph
             raw = str(document)
             clean = raw.strip()
-            paras = split_paragraphs(clean)
-            sents = split_sentences(clean)
+            paras = [Paragraph(text=p, start=0, end=len(p)) for p in clean.split("\n\n") if p.strip()]
+            sents = []
             doc = Document(
                 raw_text=raw,
                 clean_text=clean,

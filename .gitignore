@@ -29,7 +29,10 @@ huggingface/
 hf_cache/
 data/veritext.sqlite
 data/*.sqlite
+data/**/*.sqlite*
 data/*.db
+scratch_*.py
+brain/
 data/my_previous/*
 !data/my_previous/README.md
 data/uploads/*

@@ -8,6 +8,7 @@ from veritext.batch.analysis import find_clusters, run_batch_analysis
 from veritext.fingerprint.minhash import (
     LSHIndex,
     compute_minhash,
+    compute_minhash_pure_python,
     minhash_jaccard,
     screen_batch_candidates,
 )
@@ -136,3 +137,53 @@ def test_batch_shortlist_gives_identical_clusters(tmp_path):
 
     assert {"paper_01.txt", "paper_02.txt"} in [c1_names, c2_names]
     assert {"paper_03.txt", "paper_04.txt", "paper_05.txt"} in [c1_names, c2_names]
+
+
+def test_minhash_vectorized_matches_previous_accuracy():
+    """Validates that vectorized MinHash achieves equivalent statistical accuracy to legacy implementation."""
+    rng = random.Random(1337)
+    pool = [f"word_{i}" for i in range(300)]
+
+    errors_py = []
+    errors_vec = []
+
+    for _ in range(30):
+        len_a = rng.randint(40, 100)
+        len_b = rng.randint(40, 100)
+        shared_count = rng.randint(0, min(len_a, len_b))
+        shared = rng.sample(pool, shared_count)
+        toks_a = shared + [f"u_a_{i}" for i in range(len_a - shared_count)]
+        toks_b = shared + [f"u_b_{i}" for i in range(len_b - shared_count)]
+
+        true_j = len(set(toks_a) & set(toks_b)) / len(set(toks_a) | set(toks_b))
+
+        sig_py_a = compute_minhash_pure_python(toks_a)
+        sig_py_b = compute_minhash_pure_python(toks_b)
+        est_py = minhash_jaccard(sig_py_a, sig_py_b)
+
+        sig_vec_a = compute_minhash(toks_a, use_cache=False)
+        sig_vec_b = compute_minhash(toks_b, use_cache=False)
+        est_vec = minhash_jaccard(sig_vec_a, sig_vec_b)
+
+        errors_py.append(abs(est_py - true_j))
+        errors_vec.append(abs(est_vec - true_j))
+
+    mean_err_py = sum(errors_py) / len(errors_py)
+    mean_err_vec = sum(errors_vec) / len(errors_vec)
+
+    assert mean_err_vec < 0.088
+    assert abs(mean_err_vec - mean_err_py) < 0.04
+
+
+def test_minhash_sqlite_caching(tmp_path):
+    """Verifies that MinHash signatures are persisted and loaded from SQLite cache."""
+    cache_file = tmp_path / "test_minhash.sqlite"
+    tokens = ["deep", "learning", "natural", "language", "processing"]
+
+    # First call: computes and caches
+    sig1 = compute_minhash(tokens, use_cache=True, cache_db_path=cache_file)
+    assert len(sig1) == 128
+
+    # Second call: loads from cache
+    sig2 = compute_minhash(tokens, use_cache=True, cache_db_path=cache_file)
+    assert sig1 == sig2

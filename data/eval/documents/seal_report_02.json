@@ -1,0 +1,30 @@
+{
+  "document_name": "Text Document",
+  "document_path": null,
+  "original_text": "Sample report text for seal verification test case 2. This document establishes cryptographic seal integrity.",
+  "clean_text": "Sample report text for seal verification test case 2. This document establishes cryptographic seal integrity.",
+  "timestamp": "2026-10-22T14:20:04.066422+00:00",
+  "settings": {},
+  "similarity": null,
+  "ai_detect": null,
+  "integrity": null,
+  "highlights": [],
+  "profile": null,
+  "plan": null,
+  "summary": "AI Detection: Not run",
+  "disclaimer": "Disclaimer: Veritext provides statistical indicators and heuristic signals for self-review and pedagogical evaluation. These scores do not constitute definitive proof of academic misconduct or generative AI authorship. Automated checks can produce false positives and false negatives; human review and academic judgment are always required.",
+  "metadata": {
+    "word_count": 15,
+    "character_count": 109,
+    "total_highlights": 0,
+    "fulltexts_fetched": 0
+  },
+  "seal": {
+    "version": "1.0",
+    "algorithm": "HMAC-SHA256",
+    "canonical_sha256": "6ba920c00fa80c149166af95e6a12724ee6ab4a220fcd54315f6e4e839bc60e8",
+    "signature": "8324899191ce76b25acfea48cd7670c8aad0b0a7bf0f9fc3425be99e385f795b",
+    "sealed_at": "2026-10-22T14:20:04.091826+00:00",
+    "notice": "Tamper-evident seal detects unauthorized edits by parties without the local signing key. Demonstrates file integrity; does not constitute formal legal proof."
+  }
+}

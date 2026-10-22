@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "veritext"
-version = "0.1.0"
+version = "1.0.0"
 description = "Free, open-source plagiarism, AI-written-text and integrity checker with a report generator"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,20 +12,72 @@ license = {text = "MIT"}
 authors = [
     {name = "pankajt25"}
 ]
-dependencies = [
-    "streamlit",
-    "python-docx",
-    "pdfplumber",
-    "pylatexenc",
-    "scikit-learn",
-    "sentence-transformers",
-    "transformers",
-    "torch",
-    "nltk",
-    "requests",
-    "fpdf2",
-    "pytest",
+keywords = [
+    "plagiarism-detector",
+    "ai-detection",
+    "winnowing",
+    "academic-integrity",
+    "nlp",
+    "stylometry",
+    "minhash",
+    "lsh",
 ]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+    "fpdf2>=2.7.0",
+    "nltk>=3.8.1",
+    "pdfplumber>=0.10.0",
+    "pylatexenc>=2.10",
+    "python-docx>=1.1.0",
+    "requests>=2.31.0",
+    "scikit-learn>=1.3.0",
+    "sentence-transformers>=2.2.0",
+    "streamlit>=1.32.0",
+    "torch>=2.0.0",
+    "transformers>=4.35.0",
+]
+
+[project.optional-dependencies]
+lite = [
+    "fpdf2>=2.7.0",
+    "nltk>=3.8.1",
+    "pdfplumber>=0.10.0",
+    "pylatexenc>=2.10",
+    "python-docx>=1.1.0",
+    "requests>=2.31.0",
+    "streamlit>=1.32.0",
+]
+full = [
+    "rapidocr-onnxruntime>=1.3.0",
+    "sentence-transformers>=2.2.0",
+    "torch>=2.0.0",
+    "transformers>=4.35.0",
+]
+dev = [
+    "matplotlib>=3.7.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+veritext = "veritext.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/pankajt25/veritext"
+Repository = "https://github.com/pankajt25/veritext.git"
+Issues = "https://github.com/pankajt25/veritext/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -37,3 +89,16 @@ markers = [
     "slow: marks tests as slow (deselected by default in fast runs)",
 ]
 
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "data",
+    "brain",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

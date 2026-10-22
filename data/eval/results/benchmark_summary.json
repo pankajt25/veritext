@@ -1,0 +1,237 @@
+{
+  "timestamp": "2026-10-22 14:58:18 UTC",
+  "total_documents_manifest": 110,
+  "total_documents_evaluated": 104,
+  "total_runtime_seconds": 162.21,
+  "runtime_per_document_seconds": 1.5597,
+  "peak_memory_mb": 253.33,
+  "flags": {
+    "semantic": false,
+    "ai": false,
+    "crosslang": false
+  },
+  "plagiarism": {
+    "threshold": 0.15,
+    "mean_similarity_per_group": {
+      "a_copies": 0.9828,
+      "b_paraphrases": 0.0085,
+      "c_original": 0.0
+    },
+    "winnowing_only": {
+      "tp": 15,
+      "fp": 0,
+      "tn": 15,
+      "fn": 15,
+      "total": 45,
+      "accuracy": 0.6667,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6667,
+      "fpr": 0.0
+    },
+    "baseline_difflib": {
+      "tp": 15,
+      "fp": 0,
+      "tn": 15,
+      "fn": 15,
+      "total": 45,
+      "accuracy": 0.6667,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6667,
+      "fpr": 0.0
+    },
+    "winnowing_and_semantic": null,
+    "failure_cases": {
+      "missed_paraphrases_count": 15,
+      "missed_paraphrases": [
+        {
+          "file": "para_01.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0696,
+          "notes": "Paraphrase of ref_01.txt"
+        },
+        {
+          "file": "para_02.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0856,
+          "notes": "Paraphrase of ref_02.txt"
+        },
+        {
+          "file": "para_03.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0294,
+          "notes": "Paraphrase of ref_03.txt"
+        },
+        {
+          "file": "para_04.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.2264,
+          "notes": "Paraphrase of ref_04.txt"
+        },
+        {
+          "file": "para_05.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.1272,
+          "baseline_score": 0.1922,
+          "notes": "Paraphrase of ref_05.txt"
+        },
+        {
+          "file": "para_06.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0482,
+          "notes": "Paraphrase of ref_06.txt"
+        },
+        {
+          "file": "para_07.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0411,
+          "notes": "Paraphrase of ref_07.txt"
+        },
+        {
+          "file": "para_08.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0483,
+          "notes": "Paraphrase of ref_08.txt"
+        },
+        {
+          "file": "para_09.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0843,
+          "notes": "Paraphrase of ref_09.txt"
+        },
+        {
+          "file": "para_10.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.1573,
+          "notes": "Paraphrase of ref_10.txt"
+        },
+        {
+          "file": "para_11.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0963,
+          "notes": "Paraphrase of ref_11.txt"
+        },
+        {
+          "file": "para_12.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0356,
+          "notes": "Paraphrase of ref_12.txt"
+        },
+        {
+          "file": "para_13.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0379,
+          "notes": "Paraphrase of ref_13.txt"
+        },
+        {
+          "file": "para_14.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0316,
+          "notes": "Paraphrase of ref_14.txt"
+        },
+        {
+          "file": "para_15.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "baseline_score": 0.0419,
+          "notes": "Paraphrase of ref_15.txt"
+        }
+      ],
+      "false_positives_count": 0,
+      "false_positives": []
+    }
+  },
+  "ai_detection": {
+    "distilgpt2_evaluated": false,
+    "stylometry_only": {
+      "tp": 6,
+      "fp": 0,
+      "tn": 25,
+      "fn": 9,
+      "total": 40,
+      "accuracy": 0.775,
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1": 0.5714,
+      "fpr": 0.0,
+      "fpr_human_overall": 0.0,
+      "fpr_non_native_esl": 0.0
+    },
+    "distilgpt2_only": null,
+    "full_ensemble": null,
+    "failure_cases": {
+      "false_positives_human_count": 0,
+      "false_positives_human": [],
+      "false_positives_esl_count": 0,
+      "false_positives_esl": []
+    }
+  },
+  "spinner_detection": {
+    "tp": 10,
+    "fp": 0,
+    "tn": 10,
+    "fn": 0,
+    "total": 20,
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "fpr": 0.0
+  },
+  "collusion_detection": {
+    "total_submissions": 8,
+    "expected_collusion_pairs": [
+      [
+        "class_sub_03.txt",
+        "class_sub_04.txt"
+      ],
+      [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
+      ]
+    ],
+    "detected_pairwise_pairs": [
+      [
+        "class_sub_03.txt",
+        "class_sub_04.txt"
+      ],
+      [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
+      ]
+    ],
+    "minhash_lsh_candidates": [
+      [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
+      ]
+    ],
+    "expected_clusters_found": true,
+    "lsh_shortlist_recall": 0.5
+  },
+  "seal_verification": {
+    "total_reports_tested": 6,
+    "untouched_valid_count": 6,
+    "tampered_detected_count": 6,
+    "tamper_detection_rate": 1.0
+  },
+  "cross_language": {
+    "status": "skipped",
+    "reason": "Cross-language evaluation disabled (enable with --crosslang)",
+    "documents_available": 6
+  }
+}

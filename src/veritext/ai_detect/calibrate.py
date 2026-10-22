@@ -7,14 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
 
 from veritext.ai_detect.ensemble import DEFAULT_WEIGHTS, save_weights_config
 from veritext.ai_detect.features_lm import compute_lm_features, is_distilgpt2_available
@@ -86,6 +78,15 @@ def calibrate_ensemble(
 
     y = np.array(y_list, dtype=np.int32)
     has_lm = is_distilgpt2_available() if use_lm is None else use_lm
+
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import (
+        accuracy_score,
+        confusion_matrix,
+        f1_score,
+        precision_score,
+        recall_score,
+    )
 
     # 1. Extract Stylometric Features
     X_style_rows = []

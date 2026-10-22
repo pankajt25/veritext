@@ -1,0 +1,3 @@
+Bitmap Indexing in Analytical Data Warehousing Environments.
+
+Bitmap indexes represent attribute values as boolean bit vectors, where each bit corresponds to a distinct table row. Logical bitwise operators like AND, OR, and NOT execute directly on bit vectors using hardware vector registers with extreme speed. Bitmap indexing is exceptionally advantageous for low-cardinality attributes like demographic gender or transaction status in read-mostly OLAP workloads.

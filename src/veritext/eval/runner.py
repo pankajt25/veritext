@@ -204,6 +204,8 @@ class BenchmarkRunner:
             "c_original",
             "d_ai_style",
             "e_non_native",
+            "i_same_topic_originals",
+            "j_common_knowledge",
         }
         plag_rows = [r for r in self.manifest if r["group"] in eval_groups]
 
@@ -263,22 +265,33 @@ class BenchmarkRunner:
             scores_baseline.append(base_score)
             scores_by_group_baseline[grp].append(base_score)
 
-            # 3. Winnowing + Semantic (if enabled)
+            # 3. Winnowing + Semantic (if enabled) with Safer Consecutive Window Defaults
             score_sem = score_winnow
             sem_spans = []
             if self.semantic:
                 try:
-                    from veritext.similarity.semantic import find_semantic_matches
+                    from veritext.similarity.semantic import (
+                        DEFAULT_SIMILARITY_THRESHOLD,
+                        DEFAULT_MIN_CONSECUTIVE_WINDOWS,
+                        find_semantic_matches,
+                    )
                     doc_obj = _create_document(text, path=fname)
                     cands_list = list(sources_map.values())
                     sem_spans = find_semantic_matches(
                         document=doc_obj,
                         candidates=cands_list,
                         exact_spans=exact_spans,
-                        threshold=0.70,
+                        threshold=DEFAULT_SIMILARITY_THRESHOLD,
+                        min_consecutive_windows=DEFAULT_MIN_CONSECUTIVE_WINDOWS,
+                        include_single_window=False,
                     )
                     all_spans = exact_spans + sem_spans
-                    sim_sem_res = compute_similarity_score(text, all_spans, sources_map)
+                    sim_sem_res = compute_similarity_score(
+                        text,
+                        all_spans,
+                        sources_map,
+                        include_single_window_semantic=False,
+                    )
                     score_sem = sim_sem_res.similarity_percentage / 100.0
                     for s in sem_spans:
                         sem_cosine_scores.append(s.score)
@@ -338,6 +351,8 @@ class BenchmarkRunner:
             "c_original": {},
             "d_ai_style": {},
             "e_non_native": {},
+            "i_same_topic_originals": {},
+            "j_common_knowledge": {},
         }
         recall_by_group = {
             "a_copies": {},
@@ -360,7 +375,7 @@ class BenchmarkRunner:
 
             # Group-specific FPR (false positive rate on negative cohorts under active engine)
             active_preds = pred_s if self.semantic else pred_w
-            for neg_grp in ["c_original", "d_ai_style", "e_non_native"]:
+            for neg_grp in ["c_original", "d_ai_style", "e_non_native", "i_same_topic_originals", "j_common_knowledge"]:
                 neg_indices = [i for i, g in enumerate(row_groups) if g == neg_grp]
                 if neg_indices:
                     fp_count = sum(1 for i in neg_indices if active_preds[i])
@@ -900,15 +915,17 @@ class BenchmarkRunner:
                 "",
                 "### False Positive Rates across Negative Cohorts (Semantic Engine ON)",
                 "",
-                "| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |",
-                "| :---: | :---: | :---: | :---: |",
+                "| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |",
+                "| :---: | :---: | :---: | :---: | :---: | :---: |",
             ])
             for thresh in [0.05, 0.10, 0.15, 0.25]:
                 fpr_c = gfpr.get("c_original", {}).get(thresh, 0.0)
                 fpr_d = gfpr.get("d_ai_style", {}).get(thresh, 0.0)
                 fpr_e = gfpr.get("e_non_native", {}).get(thresh, 0.0)
+                fpr_i = gfpr.get("i_same_topic_originals", {}).get(thresh, 0.0)
+                fpr_j = gfpr.get("j_common_knowledge", {}).get(thresh, 0.0)
                 lines.append(
-                    f"| {thresh:.0%} | {fpr_c:.2%} | {fpr_d:.2%} | {fpr_e:.2%} |"
+                    f"| {thresh:.0%} | {fpr_c:.2%} | {fpr_d:.2%} | {fpr_e:.2%} | {fpr_i:.2%} | {fpr_j:.2%} |"
                 )
 
         # Mean similarity per group
@@ -925,6 +942,8 @@ class BenchmarkRunner:
                 f"- Group C (Unrelated Human Originals): Exact **{ex_m.get('c_original', 0):.2%}** | Semantic **{sem_m.get('c_original', 0):.2%}**",
                 f"- Group D (AI-Generated Text): Exact **{ex_m.get('d_ai_style', 0):.2%}** | Semantic **{sem_m.get('d_ai_style', 0):.2%}**",
                 f"- Group E (Non-Native English): Exact **{ex_m.get('e_non_native', 0):.2%}** | Semantic **{sem_m.get('e_non_native', 0):.2%}**",
+                f"- Group I (Same-Topic Originals): Exact **{ex_m.get('i_same_topic_originals', 0):.2%}** | Semantic **{sem_m.get('i_same_topic_originals', 0):.2%}**",
+                f"- Group J (Common Knowledge Definitions): Exact **{ex_m.get('j_common_knowledge', 0):.2%}** | Semantic **{sem_m.get('j_common_knowledge', 0):.2%}**",
             ])
         else:
             mean_sims = summary["plagiarism"]["mean_similarity_per_group"]

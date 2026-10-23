@@ -47,6 +47,7 @@ def compute_similarity_score(
     min_match_chars: int = 25,
     top_n_spans: int = 30,
     anomalies: Optional[List[Dict[str, Any]]] = None,
+    include_single_window_semantic: bool = False,
 ) -> SimilarityResult:
     """
     Computes hybrid similarity score by merging character match intervals.
@@ -60,6 +61,8 @@ def compute_similarity_score(
         min_match_chars: Minimum character length for counted matches (default: 25).
         top_n_spans: Maximum number of top spans to retain in the report.
         anomalies: List of text anomalies found during normalization.
+        include_single_window_semantic: Include isolated single-window semantic matches
+            in headline similarity score (default: False, review only).
 
     Returns:
         Complete SimilarityResult instance.
@@ -73,6 +76,9 @@ def compute_similarity_score(
         span_len = span.doc_end - span.doc_start
         if exclude_small_matches and span_len < min_match_chars:
             continue
+        # Exclude single-window semantic matches from headline percentage unless explicitly enabled
+        if span.metadata.get("is_single_window", False) and not include_single_window_semantic:
+            continue
         counted_spans.append(span)
 
     # 2. Compute overall document character coverage
@@ -83,18 +89,23 @@ def compute_similarity_score(
     )
 
     # 3. Compute per-source breakdown
-    spans_by_source: Dict[str, List[MatchSpan]] = {}
+    counted_spans_by_source: Dict[str, List[MatchSpan]] = {}
     for s in counted_spans:
-        spans_by_source.setdefault(s.source_id, []).append(s)
+        counted_spans_by_source.setdefault(s.source_id, []).append(s)
+
+    all_spans_by_source: Dict[str, List[MatchSpan]] = {}
+    for s in spans:
+        all_spans_by_source.setdefault(s.source_id, []).append(s)
 
     source_matches: List[SourceMatch] = []
-    for s_id, s_spans in spans_by_source.items():
+    for s_id, s_all_spans in all_spans_by_source.items():
         src_cand = sources_dict.get(s_id)
-        src_title = src_cand.title if src_cand else (s_spans[0].source_title or s_id)
-        src_url = src_cand.url if src_cand else s_spans[0].source_url
+        src_title = src_cand.title if src_cand else (s_all_spans[0].source_title or s_id)
+        src_url = src_cand.url if src_cand else s_all_spans[0].source_url
         src_origin = src_cand.origin if src_cand else "unknown"
 
-        src_intervals = [(sp.doc_start, sp.doc_end) for sp in s_spans]
+        s_counted = counted_spans_by_source.get(s_id, [])
+        src_intervals = [(sp.doc_start, sp.doc_end) for sp in s_counted]
         src_matched_chars = calculate_covered_characters(src_intervals)
         src_pct = min(
             100.0, (src_matched_chars / total_clean_chars) * 100.0
@@ -108,18 +119,18 @@ def compute_similarity_score(
                 origin=src_origin,
                 matched_chars=src_matched_chars,
                 percentage=src_pct,
-                match_count=len(s_spans),
-                spans=s_spans,
+                match_count=len(s_all_spans),
+                spans=s_all_spans,
             )
         )
 
     # Sort sources by percentage descending
     source_matches.sort(key=lambda sm: sm.percentage, reverse=True)
 
-    # 4. Rank top match spans
+    # 4. Rank top match spans (counted spans first, then review spans)
     ranked_spans = sorted(
-        counted_spans,
-        key=lambda s: (s.score, (s.doc_end - s.doc_start)),
+        spans,
+        key=lambda s: (not s.metadata.get("is_single_window", False), s.score, (s.doc_end - s.doc_start)),
         reverse=True,
     )
 
@@ -132,11 +143,13 @@ def compute_similarity_score(
         sources=source_matches,
         anomalies=anomalies or [],
         metadata={
-            "exact_matches_count": sum(1 for s in counted_spans if s.type == "exact"),
+            "exact_matches_count": sum(1 for s in counted_spans if s.type in ("exact", "near_copy")),
             "paraphrase_matches_count": sum(
-                1 for s in counted_spans if s.type in ("near_copy", "paraphrase")
+                1 for s in counted_spans if s.type in ("near_copy", "paraphrase", "possible paraphrase (review)")
             ),
+            "single_window_review_count": sum(1 for s in spans if s.metadata.get("is_single_window", False)),
             "total_matches_count": len(counted_spans),
+            "include_single_window_semantic": include_single_window_semantic,
             "all_original_spans": spans,
         },
     )

@@ -22,6 +22,13 @@ CATEGORY_STYLES: Dict[str, Dict[str, str]] = {
         "label": "Paraphrase",
         "desc": "Paraphrased or near-copy text (dashed orange underline)",
     },
+    "possible paraphrase (review)": {
+        "bg": "#ffedd5",
+        "color": "#9a3412",
+        "border": "2px dashed #ea580c",
+        "label": "Possible Paraphrase (Review)",
+        "desc": "Possible semantic paraphrase requiring human review (dashed orange underline)",
+    },
     "likely AI": {
         "bg": "#ede9fe",
         "color": "#5b21b6",

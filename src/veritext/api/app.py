@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Veritext Academic Integrity API",
     description="Local REST API for multi-signal plagiarism, AI text detection, and integrity checks.",
-    version="1.0.1",
+    version="1.0.2",
     lifespan=lifespan,
 )
 
@@ -93,7 +93,7 @@ def health_check():
     """Service health and background worker status."""
     return {
         "status": "ok",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "worker_running": worker.is_alive(),
         "jobs_in_queue": queue.count_queued(),
         "timestamp": datetime.now(timezone.utc).isoformat(),

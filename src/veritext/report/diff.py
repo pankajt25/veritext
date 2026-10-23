@@ -38,6 +38,14 @@ DIFF_STYLES: Dict[str, Dict[str, str]] = {
         "badge_bg": "#d97706",
         "badge_color": "#ffffff",
     },
+    "possible paraphrase (review)": {
+        "bg": "#fef3c7",
+        "color": "#92400e",
+        "border": "2px dotted #d97706",
+        "badge": "PARAPHRASE (REVIEW)",
+        "badge_bg": "#d97706",
+        "badge_color": "#ffffff",
+    },
 }
 
 

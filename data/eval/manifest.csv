@@ -119,3 +119,33 @@ trans_03.txt,h_translations,yes,no,no,none,Multilingual translation 03 (ES/FR)
 trans_04.txt,h_translations,yes,no,no,none,Multilingual translation 04 (ES/FR)
 trans_05.txt,h_translations,yes,no,no,none,Multilingual translation 05 (ES/FR)
 trans_06.txt,h_translations,yes,no,no,none,Multilingual translation 06 (ES/FR)
+same_topic_01.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_01.txt
+same_topic_02.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_02.txt
+same_topic_03.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_03.txt
+same_topic_04.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_04.txt
+same_topic_05.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_05.txt
+same_topic_06.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_06.txt
+same_topic_07.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_07.txt
+same_topic_08.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_08.txt
+same_topic_09.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_09.txt
+same_topic_10.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_10.txt
+same_topic_11.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_11.txt
+same_topic_12.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_12.txt
+same_topic_13.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_13.txt
+same_topic_14.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_14.txt
+same_topic_15.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_15.txt
+same_topic_16.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_16.txt
+same_topic_17.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_17.txt
+same_topic_18.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_18.txt
+same_topic_19.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_19.txt
+same_topic_20.txt,i_same_topic_originals,no,no,no,none,Original text on same topic as ref_20.txt
+common_know_01.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 01
+common_know_02.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 02
+common_know_03.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 03
+common_know_04.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 04
+common_know_05.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 05
+common_know_06.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 06
+common_know_07.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 07
+common_know_08.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 08
+common_know_09.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 09
+common_know_10.txt,j_common_knowledge,no,no,no,none,Common knowledge standard definition 10

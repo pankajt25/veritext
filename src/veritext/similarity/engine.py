@@ -105,6 +105,9 @@ def check_document(
 
     # Step 5: Semantic Paraphrase Matching (Vector Search)
     semantic_spans = []
+    min_consec = opts.get("min_consecutive_windows", 2)
+    include_single = opts.get("include_single_window", False)
+
     if candidates and not opts.get("skip_semantic", False):
         try:
             semantic_spans = find_semantic_matches(
@@ -115,6 +118,8 @@ def check_document(
                 progress_callback=opts.get("progress_callback"),
                 cancel_check=opts.get("cancel_check"),
                 word_ranges=opts.get("word_ranges"),
+                min_consecutive_windows=min_consec,
+                include_single_window=include_single,
             )
         except Exception as e:
             logger.warning(f"Semantic search encountered an error: {e}")
@@ -129,6 +134,7 @@ def check_document(
         exclude_small_matches=opts.get("exclude_small_matches", True),
         min_match_chars=opts.get("min_match_chars", 25),
         anomalies=anomaly_dicts,
+        include_single_window_semantic=include_single,
     )
     result.metadata["fulltexts_fetched"] = fulltexts_fetched
 

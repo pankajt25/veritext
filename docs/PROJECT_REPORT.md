@@ -53,57 +53,61 @@ Over seven engineering stages, Veritext evolved from a foundational parser into 
 
 ## 2. Evaluation & Benchmark Results
 
-Veritext was benchmarked on a synthetic dataset of 114 evaluated documents executed entirely offline on dual-core hardware (total runtime: 1911.1 s, peak memory: 389.19 MB).
+Veritext was benchmarked on a synthetic dataset of 114 evaluated documents executed entirely offline on dual-core hardware (total runtime: 803.08 s, peak memory: 377.64 MB).
 
-> **Methodology and Dataset Note**: The evaluation corpus is small, synthetic, and written by the same author as the detector. It serves to verify algorithmic guarantees, component wiring, and relative ranking rather than open-domain generalization. Results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.
+> **Methodology and Dataset Note**: The evaluation corpus is small, synthetic, and written by the same author as the detector. It serves to verify algorithmic guarantees, component wiring, and relative ranking rather than open-domain generalization. Results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, ESL writing, same-topic originals, and common-knowledge standard definitions. Veritext makes no claim of parity with commercial services with proprietary multi-billion document databases.
 
 ### Plagiarism Detection Engine Ablation (Headline Threshold: 15%)
 
 | Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exact Winnowing (Veritext)** | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| Baseline (difflib SequenceMatcher) | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| **Winnowing + Semantic Paraphrase** | **100.00%** | **100.00%** | **100.00%** | **100.00%** | **0.00%** |
+| **Exact Winnowing (Veritext)** | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
 #### Decision Threshold Sensitivity Analysis
 
 | Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| 5% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
-| 5% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 10% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
-| 10% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 15% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 15% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 25% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 25% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 5% | Exact Winnowing | 77.27% | 94.12% | 40.00% | 56.14% | 1.43% |
+| 5% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 10% | Exact Winnowing | 78.18% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 10% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 15% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 15% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 25% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 25% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
 #### Paraphrase Recall: Easy vs. Hard Subsets
 
 | Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |
 | :---: | :---: | :---: | :---: |
-| 5% | 100.00% | 100.00% | 100.00% |
-| 10% | 100.00% | 100.00% | 100.00% |
-| 15% | 100.00% | 100.00% | 100.00% |
-| 25% | 100.00% | 100.00% | 100.00% |
+| 5% | 100.00% | 93.33% | 70.00% |
+| 10% | 100.00% | 93.33% | 70.00% |
+| 15% | 100.00% | 93.33% | 70.00% |
+| 25% | 100.00% | 93.33% | 70.00% |
 
 #### False Positive Rates across Negative Cohorts (Semantic Engine ON)
 
-| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |
-| :---: | :---: | :---: | :---: |
-| 5% | 0.00% | 0.00% | 0.00% |
-| 10% | 0.00% | 0.00% | 0.00% |
-| 15% | 0.00% | 0.00% | 0.00% |
-| 25% | 0.00% | 0.00% | 0.00% |
+| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 5% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 10% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 15% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 25% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
 
 - **Mean Similarity Detected**:
   - Group A (Verbatim / Lightly Edited Copies): Exact **98.28%** | Semantic **98.28%**
-  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **90.96%** (4.27 spans/doc, mean cosine 0.81)
-  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **83.94%** (3.90 spans/doc, mean cosine 0.77)
+  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **68.44%**
+  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **43.74%**
   - Group C (Unrelated Human Originals): Exact **0.00%** | Semantic **0.00%**
   - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%**
   - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%**
-- **Paraphrase Detection Analysis**: Exact winnowing achieves 98.28% mean similarity on verbatim copies with zero false positives, but achieves 0.85% on easy paraphrases and 0.00% on hard paraphrases. Dense semantic vector matching (`all-MiniLM-L6-v2`) bridges this gap completely, achieving 90.96% on easy paraphrases and 83.94% on hard complex paraphrases, yielding 100% recall and 0% false positives across all decision thresholds.
+  - Group I (Same-Topic Originals): Exact **0.51%** | Semantic **65.85%**
+  - Group J (Common Knowledge Definitions): Exact **0.00%** | Semantic **0.00%**
+- **Paraphrase Detection Analysis & Same-Topic Stress Test**:
+  Exact winnowing achieves 98.28% mean similarity on verbatim copies with zero false positives on negative cohorts, but achieves 0.85% on easy paraphrases and 0.00% on hard paraphrases. Dense semantic vector matching (`all-MiniLM-L6-v2`) detects non-verbatim conceptual paraphrasing, attaining 93.33% recall on easy paraphrases and 70.00% recall on hard complex paraphrases.
+  However, the same-topic stress test demonstrates an essential boundary of dense embeddings: independently written papers covering the identical specialized technical topic (Group I) share vector neighborhoods (median cosine 0.81), yielding a 95.00% document-level false-positive rate if treated as definitive plagiarism. Consequently, Veritext sets safer defaults: requiring minimum 2 consecutive windows (`min_consecutive_windows=2`), excluding single isolated window matches from the headline document similarity percentage, and labeling matches as `"possible paraphrase (review)"` for human instructor evaluation. Single textbook definitions of common knowledge (Group J) trigger 0.00% false positives.
 
 ### AI Detection Ablation
 

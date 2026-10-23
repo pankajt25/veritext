@@ -36,8 +36,20 @@ def main():
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.75,
-        help="Semantic similarity threshold (default: 0.75)",
+        default=0.78,
+        help="Semantic similarity threshold (default: 0.78)",
+    )
+    parser.add_argument(
+        "--include-single-window",
+        action="store_true",
+        default=False,
+        help="Include isolated single-window semantic matches in headline similarity score (default: False, review only)",
+    )
+    parser.add_argument(
+        "--min-consecutive-windows",
+        type=int,
+        default=2,
+        help="Minimum consecutive matching sentence windows required for headline score (default: 2)",
     )
     parser.add_argument(
         "--fetch-fulltext",
@@ -168,6 +180,8 @@ def main():
                 "class_name": args.class_name,
                 "show_names": args.show_names,
                 "word_ranges": sem_plan.word_ranges if (sem_plan and sem_plan.sampling_mode == "section_sampled") else None,
+                "include_single_window": args.include_single_window,
+                "min_consecutive_windows": args.min_consecutive_windows,
             },
         )
     except KeyboardInterrupt:

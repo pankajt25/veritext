@@ -76,6 +76,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Execute dense neural vector paraphrase search",
     )
     parser.add_argument(
+        "--include-single-window",
+        action="store_true",
+        default=False,
+        help="Include isolated single-window semantic matches in headline similarity score (default: False, review only)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["auto", "full", "custom"],
         default="auto",
@@ -171,6 +177,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             options={
                 "skip_semantic": skip_semantic,
                 "word_ranges": sem_plan.word_ranges if (sem_plan and sem_plan.sampling_mode == "section_sampled") else None,
+                "include_single_window": getattr(args, "include_single_window", False),
             },
         )
 

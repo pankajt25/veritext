@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-10-23 13:12:29 UTC",
-  "total_documents_manifest": 120,
+  "timestamp": "2026-10-23 17:54:22 UTC",
+  "total_documents_manifest": 150,
   "total_documents_evaluated": 114,
-  "total_runtime_seconds": 1911.1,
-  "runtime_per_document_seconds": 16.7641,
-  "peak_memory_mb": 389.19,
+  "total_runtime_seconds": 803.08,
+  "runtime_per_document_seconds": 7.0446,
+  "peak_memory_mb": 377.64,
   "flags": {
     "semantic": true,
     "ai": true,
@@ -22,23 +22,23 @@
       "winnowing_only": {
         "0.05": {
           "tp": 16,
-          "fp": 0,
-          "tn": 40,
+          "fp": 1,
+          "tn": 69,
           "fn": 24,
-          "total": 80,
-          "accuracy": 0.7,
-          "precision": 1.0,
+          "total": 110,
+          "accuracy": 0.7727,
+          "precision": 0.9412,
           "recall": 0.4,
-          "f1": 0.5714,
-          "fpr": 0.0
+          "f1": 0.5614,
+          "fpr": 0.0143
         },
         "0.1": {
           "tp": 16,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 24,
-          "total": 80,
-          "accuracy": 0.7,
+          "total": 110,
+          "accuracy": 0.7818,
           "precision": 1.0,
           "recall": 0.4,
           "f1": 0.5714,
@@ -47,10 +47,10 @@
         "0.15": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -59,10 +59,10 @@
         "0.25": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -71,62 +71,62 @@
       },
       "winnowing_and_semantic": {
         "0.05": {
-          "tp": 40,
-          "fp": 0,
-          "tn": 40,
-          "fn": 0,
-          "total": 80,
-          "accuracy": 1.0,
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "fpr": 0.0
+          "tp": 36,
+          "fp": 19,
+          "tn": 51,
+          "fn": 4,
+          "total": 110,
+          "accuracy": 0.7909,
+          "precision": 0.6545,
+          "recall": 0.9,
+          "f1": 0.7579,
+          "fpr": 0.2714
         },
         "0.1": {
-          "tp": 40,
-          "fp": 0,
-          "tn": 40,
-          "fn": 0,
-          "total": 80,
-          "accuracy": 1.0,
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "fpr": 0.0
+          "tp": 36,
+          "fp": 19,
+          "tn": 51,
+          "fn": 4,
+          "total": 110,
+          "accuracy": 0.7909,
+          "precision": 0.6545,
+          "recall": 0.9,
+          "f1": 0.7579,
+          "fpr": 0.2714
         },
         "0.15": {
-          "tp": 40,
-          "fp": 0,
-          "tn": 40,
-          "fn": 0,
-          "total": 80,
-          "accuracy": 1.0,
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "fpr": 0.0
+          "tp": 36,
+          "fp": 19,
+          "tn": 51,
+          "fn": 4,
+          "total": 110,
+          "accuracy": 0.7909,
+          "precision": 0.6545,
+          "recall": 0.9,
+          "f1": 0.7579,
+          "fpr": 0.2714
         },
         "0.25": {
-          "tp": 40,
-          "fp": 0,
-          "tn": 40,
-          "fn": 0,
-          "total": 80,
-          "accuracy": 1.0,
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "fpr": 0.0
+          "tp": 36,
+          "fp": 19,
+          "tn": 51,
+          "fn": 4,
+          "total": 110,
+          "accuracy": 0.7909,
+          "precision": 0.6545,
+          "recall": 0.9,
+          "f1": 0.7579,
+          "fpr": 0.2714
         }
       },
       "baseline_difflib": {
         "0.05": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -135,10 +135,10 @@
         "0.1": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -147,10 +147,10 @@
         "0.15": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -159,10 +159,10 @@
         "0.25": {
           "tp": 15,
           "fp": 0,
-          "tn": 40,
+          "tn": 70,
           "fn": 25,
-          "total": 80,
-          "accuracy": 0.6875,
+          "total": 110,
+          "accuracy": 0.7727,
           "precision": 1.0,
           "recall": 0.375,
           "f1": 0.5455,
@@ -188,6 +188,18 @@
         "0.1": 0.0,
         "0.15": 0.0,
         "0.25": 0.0
+      },
+      "i_same_topic_originals": {
+        "0.05": 0.95,
+        "0.1": 0.95,
+        "0.15": 0.95,
+        "0.25": 0.95
+      },
+      "j_common_knowledge": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
       }
     },
     "paraphrase_recall_breakdown": {
@@ -198,25 +210,27 @@
         "0.25": 1.0
       },
       "b_paraphrases": {
-        "0.05": 1.0,
-        "0.1": 1.0,
-        "0.15": 1.0,
-        "0.25": 1.0
+        "0.05": 0.9333,
+        "0.1": 0.9333,
+        "0.15": 0.9333,
+        "0.25": 0.9333
       },
       "b_paraphrases_hard": {
-        "0.05": 1.0,
-        "0.1": 1.0,
-        "0.15": 1.0,
-        "0.25": 1.0
+        "0.05": 0.7,
+        "0.1": 0.7,
+        "0.15": 0.7,
+        "0.25": 0.7
       }
     },
     "mean_similarity_per_group": {
-      "b_paraphrases": 0.9096,
-      "d_ai_style": 0.0,
-      "b_paraphrases_hard": 0.8394,
-      "a_copies": 0.9828,
+      "j_common_knowledge": 0.0,
       "e_non_native": 0.0,
-      "c_original": 0.0
+      "b_paraphrases_hard": 0.4374,
+      "c_original": 0.0,
+      "a_copies": 0.9828,
+      "d_ai_style": 0.0,
+      "i_same_topic_originals": 0.6585,
+      "b_paraphrases": 0.6844
     },
     "mean_similarity_by_engine": {
       "exact": {
@@ -225,15 +239,19 @@
         "b_paraphrases_hard": 0.0,
         "c_original": 0.0,
         "d_ai_style": 0.0,
-        "e_non_native": 0.0
+        "e_non_native": 0.0,
+        "i_same_topic_originals": 0.0051,
+        "j_common_knowledge": 0.0
       },
       "semantic": {
         "a_copies": 0.9828,
-        "b_paraphrases": 0.9096,
-        "b_paraphrases_hard": 0.8394,
+        "b_paraphrases": 0.6844,
+        "b_paraphrases_hard": 0.4374,
         "c_original": 0.0,
         "d_ai_style": 0.0,
-        "e_non_native": 0.0
+        "e_non_native": 0.0,
+        "i_same_topic_originals": 0.6585,
+        "j_common_knowledge": 0.0
       },
       "baseline": {
         "a_copies": 0.9683,
@@ -241,40 +259,42 @@
         "b_paraphrases_hard": 0.0534,
         "c_original": 0.0253,
         "d_ai_style": 0.0262,
-        "e_non_native": 0.0262
+        "e_non_native": 0.0262,
+        "i_same_topic_originals": 0.0656,
+        "j_common_knowledge": 0.0399
       }
     },
     "winnowing_only": {
       "tp": 15,
       "fp": 0,
-      "tn": 40,
+      "tn": 70,
       "fn": 25,
-      "total": 80,
-      "accuracy": 0.6875,
+      "total": 110,
+      "accuracy": 0.7727,
       "precision": 1.0,
       "recall": 0.375,
       "f1": 0.5455,
       "fpr": 0.0
     },
     "winnowing_and_semantic": {
-      "tp": 40,
-      "fp": 0,
-      "tn": 40,
-      "fn": 0,
-      "total": 80,
-      "accuracy": 1.0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "fpr": 0.0
+      "tp": 36,
+      "fp": 19,
+      "tn": 51,
+      "fn": 4,
+      "total": 110,
+      "accuracy": 0.7909,
+      "precision": 0.6545,
+      "recall": 0.9,
+      "f1": 0.7579,
+      "fpr": 0.2714
     },
     "baseline_difflib": {
       "tp": 15,
       "fp": 0,
-      "tn": 40,
+      "tn": 70,
       "fn": 25,
-      "total": 80,
-      "accuracy": 0.6875,
+      "total": 110,
+      "accuracy": 0.7727,
       "precision": 1.0,
       "recall": 0.375,
       "f1": 0.5455,
@@ -287,27 +307,199 @@
         "b_paraphrases_hard": 0.0,
         "c_original": 0.0,
         "d_ai_style": 0.0,
-        "e_non_native": 0.0
+        "e_non_native": 0.0,
+        "i_same_topic_originals": 0.1,
+        "j_common_knowledge": 0.0
       },
       "mean_semantic_spans_per_doc": {
         "a_copies": 0.0,
-        "b_paraphrases": 4.27,
-        "b_paraphrases_hard": 3.9,
+        "b_paraphrases": 3.07,
+        "b_paraphrases_hard": 2.2,
         "c_original": 0.0,
         "d_ai_style": 0.0,
-        "e_non_native": 0.0
+        "e_non_native": 0.0,
+        "i_same_topic_originals": 2.7,
+        "j_common_knowledge": 0.0
       },
-      "mean_semantic_cosine_similarity": 0.7905,
-      "total_semantic_spans_found": 103
+      "mean_semantic_cosine_similarity": 0.8296,
+      "total_semantic_spans_found": 122
     },
     "failure_cases": {
-      "missed_paraphrases_easy_count": 0,
-      "missed_paraphrases_easy": [],
-      "missed_paraphrases_hard_count": 0,
-      "missed_paraphrases_hard": [],
-      "missed_paraphrases_count": 0,
-      "false_positives_count": 0,
-      "false_positives": []
+      "missed_paraphrases_easy_count": 1,
+      "missed_paraphrases_easy": [
+        {
+          "file": "para_01.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "semantic_score": 0.0,
+          "baseline_score": 0.0696,
+          "notes": "Paraphrase of ref_01.txt"
+        }
+      ],
+      "missed_paraphrases_hard_count": 3,
+      "missed_paraphrases_hard": [
+        {
+          "file": "para_hard_01.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "semantic_score": 0.0,
+          "baseline_score": 0.1008,
+          "notes": "Hard complex paraphrase of ref_01.txt"
+        },
+        {
+          "file": "para_hard_04.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "semantic_score": 0.0,
+          "baseline_score": 0.0368,
+          "notes": "Hard complex paraphrase of ref_04.txt"
+        },
+        {
+          "file": "para_hard_05.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "semantic_score": 0.0,
+          "baseline_score": 0.037,
+          "notes": "Hard complex paraphrase of ref_05.txt"
+        }
+      ],
+      "missed_paraphrases_count": 4,
+      "false_positives_count": 19,
+      "false_positives": [
+        {
+          "file": "same_topic_02.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.6389,
+          "notes": "Original text on same topic as ref_02.txt"
+        },
+        {
+          "file": "same_topic_03.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.7485,
+          "notes": "Original text on same topic as ref_03.txt"
+        },
+        {
+          "file": "same_topic_04.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.4269,
+          "notes": "Original text on same topic as ref_04.txt"
+        },
+        {
+          "file": "same_topic_05.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.7519,
+          "notes": "Original text on same topic as ref_05.txt"
+        },
+        {
+          "file": "same_topic_06.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.8241,
+          "notes": "Original text on same topic as ref_06.txt"
+        },
+        {
+          "file": "same_topic_07.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.7257,
+          "notes": "Original text on same topic as ref_07.txt"
+        },
+        {
+          "file": "same_topic_08.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.635,
+          "notes": "Original text on same topic as ref_08.txt"
+        },
+        {
+          "file": "same_topic_09.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.5756,
+          "notes": "Original text on same topic as ref_09.txt"
+        },
+        {
+          "file": "same_topic_10.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.6527,
+          "notes": "Original text on same topic as ref_10.txt"
+        },
+        {
+          "file": "same_topic_11.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.3593,
+          "notes": "Original text on same topic as ref_11.txt"
+        },
+        {
+          "file": "same_topic_12.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0541,
+          "semantic_score": 0.6554,
+          "notes": "Original text on same topic as ref_12.txt"
+        },
+        {
+          "file": "same_topic_13.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.4281,
+          "notes": "Original text on same topic as ref_13.txt"
+        },
+        {
+          "file": "same_topic_14.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0487,
+          "semantic_score": 0.9955,
+          "notes": "Original text on same topic as ref_14.txt"
+        },
+        {
+          "file": "same_topic_15.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.9978,
+          "notes": "Original text on same topic as ref_15.txt"
+        },
+        {
+          "file": "same_topic_16.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.9032,
+          "notes": "Original text on same topic as ref_16.txt"
+        },
+        {
+          "file": "same_topic_17.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.4227,
+          "notes": "Original text on same topic as ref_17.txt"
+        },
+        {
+          "file": "same_topic_18.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.4356,
+          "notes": "Original text on same topic as ref_18.txt"
+        },
+        {
+          "file": "same_topic_19.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.9966,
+          "notes": "Original text on same topic as ref_19.txt"
+        },
+        {
+          "file": "same_topic_20.txt",
+          "group": "i_same_topic_originals",
+          "winnow_score": 0.0,
+          "semantic_score": 0.9967,
+          "notes": "Original text on same topic as ref_20.txt"
+        }
+      ]
     }
   },
   "ai_detection": {

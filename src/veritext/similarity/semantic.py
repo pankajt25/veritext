@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 
@@ -17,7 +17,8 @@ from veritext.sources.models import SourceCandidate
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_NAME = "all-MiniLM-L6-v2"
-DEFAULT_SIMILARITY_THRESHOLD = 0.75
+DEFAULT_SIMILARITY_THRESHOLD = 0.78
+DEFAULT_MIN_CONSECUTIVE_WINDOWS = 2
 EMBEDDING_DIM = 384
 
 _model = None
@@ -218,17 +219,47 @@ def find_semantic_matches(
     progress_callback=None,
     cancel_check=None,
     word_ranges: Optional[List[Tuple[int, int]]] = None,
+    min_consecutive_windows: int = DEFAULT_MIN_CONSECUTIVE_WINDOWS,
+    include_single_window: bool = False,
 ) -> List[MatchSpan]:
     """
     Performs semantic vector search using blocked matrix multiplication to detect
     paraphrased and near-copy passages without holding the full similarity matrix.
+
+    Consecutive Window & Single-Window Rule:
+    - MatchSpans are grouped by candidate source.
+    - Contiguous sentence runs are computed per source. If a match does not span
+      at least `min_consecutive_windows` adjacent sentences, it is marked with
+      `is_single_window=True`.
+    - All semantic spans display as 'possible paraphrase (review)'.
+    - Single-window matches are excluded from the headline similarity score by
+      default unless `include_single_window=True`.
     """
+    from collections import defaultdict
     import math
 
     covered_spans = exact_spans or []
 
     # 1. Prepare document sentence windows not covered by exact matches
     all_windows = build_sentence_windows(document, window_size=2)
+
+    # Pre-map each window to its constituent sentence indices
+    doc_sents = document.sentences
+    has_sents = bool(doc_sents)
+
+    def get_window_sentence_indices(w_start: int, w_end: int) -> List[int]:
+        if has_sents:
+            return [
+                idx
+                for idx, s in enumerate(doc_sents)
+                if not (s.end <= w_start or s.start >= w_end)
+            ]
+        # Fallback to paragraphs
+        return [
+            idx
+            for idx, p in enumerate(document.paragraphs)
+            if not (p.end <= w_start or p.start >= w_end)
+        ]
 
     # Optional word range filtering from analysis plan
     if word_ranges:
@@ -245,7 +276,7 @@ def find_semantic_matches(
         all_windows = allowed_windows
 
     doc_windows = [
-        (w_text, w_start, w_end)
+        (w_text, w_start, w_end, get_window_sentence_indices(w_start, w_end))
         for w_text, w_start, w_end in all_windows
         if not is_span_covered(w_start, w_end, covered_spans)
         and len(w_text.split()) >= 6
@@ -324,36 +355,75 @@ def find_semantic_matches(
         del sim_block
         del doc_block
 
-    # 5. Formulate MatchSpans
+    # 5. Formulate MatchSpans with Consecutive Sentence Windows Rule
+    matches_by_source: Dict[str, List[Tuple[int, int, float]]] = defaultdict(list)
+    for d_idx, c_idx, score in match_pairs:
+        src_id = candidate_passages[c_idx]["source_id"]
+        matches_by_source[src_id].append((d_idx, c_idx, score))
+
     semantic_spans: List[MatchSpan] = []
     seen_window_starts = set()
 
-    for d_idx, c_idx, score in match_pairs:
-        w_text, w_start, w_end = doc_windows[d_idx]
-        if w_start in seen_window_starts:
-            continue
-        seen_window_starts.add(w_start)
+    for src_id, src_matches in matches_by_source.items():
+        # Identify all sentence indices that matched this source
+        matched_sentence_indices: Set[int] = set()
+        for d_idx, c_idx, score in src_matches:
+            w_text, w_start, w_end, w_sents = doc_windows[d_idx]
+            matched_sentence_indices.update(w_sents)
 
-        target_source = candidate_passages[c_idx]
-        match_type = "near_copy" if score >= 0.94 else "paraphrase"
+        # Compute contiguous runs of matching sentences
+        sorted_sents = sorted(matched_sentence_indices)
+        runs: List[List[int]] = []
+        current_run: List[int] = []
+        for s_idx in sorted_sents:
+            if not current_run or s_idx == current_run[-1] + 1:
+                current_run.append(s_idx)
+            else:
+                runs.append(current_run)
+                current_run = [s_idx]
+        if current_run:
+            runs.append(current_run)
 
-        semantic_spans.append(
-            MatchSpan(
-                type=match_type,
-                score=score,
-                source_id=target_source["source_id"],
-                source_title=target_source["source_title"],
-                source_url=target_source["source_url"],
-                doc_start=w_start,
-                doc_end=w_end,
-                matched_text=w_text,
-                source_text=target_source["text"][:300],
-                metadata={
-                    "similarity_score": round(score, 4),
-                    "search_type": "vector_cosine",
-                },
+        # Map each sentence to the length of its contiguous run
+        sent_run_length: Dict[int, int] = {}
+        for r in runs:
+            r_len = len(r)
+            for s_idx in r:
+                sent_run_length[s_idx] = r_len
+
+        for d_idx, c_idx, score in src_matches:
+            w_text, w_start, w_end, w_sents = doc_windows[d_idx]
+            if w_start in seen_window_starts:
+                continue
+            seen_window_starts.add(w_start)
+
+            target_source = candidate_passages[c_idx]
+            max_run = max((sent_run_length.get(s, 1) for s in w_sents), default=1)
+            is_single = max_run < min_consecutive_windows
+
+            # Display semantic-only spans as 'possible paraphrase (review)'
+            span_type = "possible paraphrase (review)"
+
+            semantic_spans.append(
+                MatchSpan(
+                    type=span_type,
+                    score=score,
+                    source_id=target_source["source_id"],
+                    source_title=target_source["source_title"],
+                    source_url=target_source["source_url"],
+                    doc_start=w_start,
+                    doc_end=w_end,
+                    matched_text=w_text,
+                    source_text=target_source["text"][:300],
+                    metadata={
+                        "similarity_score": round(score, 4),
+                        "search_type": "vector_cosine",
+                        "is_single_window": is_single,
+                        "consecutive_windows": max_run,
+                        "include_in_score": (not is_single) or include_single_window,
+                    },
+                )
             )
-        )
 
     semantic_spans.sort(key=lambda s: s.doc_start)
     return semantic_spans

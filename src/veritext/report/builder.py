@@ -67,7 +67,7 @@ def build_report(
         for src in similarity.sources:
             for sp in src.spans:
                 sp_type = getattr(sp, "type", "exact")
-                cat = "exact match" if sp_type in ("exact", "near_copy") else "paraphrase"
+                cat = "exact match" if sp_type in ("exact", "near_copy") else "possible paraphrase (review)"
                 sev = "high" if sp_type == "exact" else "warning"
 
                 m_text = getattr(sp, "matched_text", "")

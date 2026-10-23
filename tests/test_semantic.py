@@ -238,12 +238,140 @@ def test_semantic_produces_paraphrase_spans_exact_does_not_mocked(tmp_path):
 
     # Semantic matching MUST produce paraphrase matches
     assert len(sem_spans) >= 1
-    assert sem_spans[0].type in ("near_copy", "paraphrase")
+    assert sem_spans[0].type in ("near_copy", "paraphrase", "possible paraphrase (review)")
     assert sem_spans[0].score >= 0.75
 
     # Overall similarity jumps from 0.0% to > 50%
-    score_semantic = compute_similarity_score(query_text, sem_spans, sources_map).similarity_percentage
+    score_semantic = compute_similarity_score(query_text, sem_spans, sources_map, include_single_window_semantic=True).similarity_percentage
     assert score_semantic > 50.0
+
+
+def test_minimum_consecutive_windows_and_single_window_exclusion(tmp_path):
+    """Fast test with mocked vectors verifying the consecutive windows rule and single-window exclusion."""
+    from veritext.similarity.scorer import compute_similarity_score
+
+    cache = EmbeddingCache(tmp_path / "consec_test.sqlite")
+
+    v1 = np.ones(384, dtype=np.float32)
+    v1 = v1 / np.linalg.norm(v1)
+
+    v2 = np.zeros(384, dtype=np.float32)
+    v2[0] = 1.0
+
+    class MockControlledModel:
+        def encode(self, sentences, **kwargs):
+            vecs = []
+            for s in sentences:
+                if "Alpha sentence" in s:
+                    vecs.append(v1)
+                elif s.strip() == s3.strip():
+                    vecs.append(v2)
+                else:
+                    rng = np.random.RandomState(abs(hash(s)) % (2**31))
+                    rnd = rng.randn(384).astype(np.float32)
+                    vecs.append(rnd / np.linalg.norm(rnd))
+            return np.array(vecs, dtype=np.float32)
+
+    # 4-sentence document:
+    # Sentence 0 & 1 match Cand A (consecutive run = 2)
+    # Sentence 2 is unrelated
+    # Sentence 3 matches Cand B (isolated single window, run = 1)
+    s0 = "Alpha sentence zero describes first consecutive mechanism."
+    s1 = "Alpha sentence one describes second consecutive mechanism."
+    s2 = "Beta sentence two discusses unrelated historical navigation methods."
+    s3 = "Gamma sentence three explains an isolated cryptographic definition."
+
+    raw = f"{s0} {s1} {s2} {s3}"
+    c0_s, c0_e = 0, len(s0)
+    c1_s, c1_e = c0_e + 1, c0_e + 1 + len(s1)
+    c2_s, c2_e = c1_e + 1, c1_e + 1 + len(s2)
+    c3_s, c3_e = c2_e + 1, c2_e + 1 + len(s3)
+
+    doc = Document(
+        raw_text=raw,
+        clean_text=raw,
+        file_type=".txt",
+        sentences=[
+            Sentence(s0, c0_s, c0_e),
+            Sentence(s1, c1_s, c1_e),
+            Sentence(s2, c2_s, c2_e),
+            Sentence(s3, c3_s, c3_e),
+        ],
+        paragraphs=[Paragraph(raw, 0, len(raw))],
+        removed_sections=[],
+    )
+
+    cand_a = SourceCandidate(
+        id="cand_a",
+        title="Candidate A",
+        authors=["Author A"],
+        url="local://cand_a",
+        text=f"{s0} {s1}",
+        origin="local_library",
+        year=2024,
+    )
+    cand_b = SourceCandidate(
+        id="cand_b",
+        title="Candidate B",
+        authors=["Author B"],
+        url="local://cand_b",
+        text=s3,
+        origin="local_library",
+        year=2024,
+    )
+
+    # Run semantic matching with min_consecutive_windows=2
+    spans = find_semantic_matches(
+        document=doc,
+        candidates=[cand_a, cand_b],
+        threshold=0.75,
+        cache=cache,
+        model=MockControlledModel(),
+        min_consecutive_windows=2,
+        include_single_window=False,
+    )
+
+    # All semantic spans must display as 'possible paraphrase (review)'
+    for sp in spans:
+        assert sp.type == "possible paraphrase (review)"
+
+    spans_a = [s for s in spans if s.source_id == "cand_a"]
+    spans_b = [s for s in spans if s.source_id == "cand_b"]
+
+    assert len(spans_a) >= 1
+    assert len(spans_b) >= 1
+
+    # cand_a matches are consecutive (run >= 2) -> is_single_window == False
+    for sp in spans_a:
+        assert sp.metadata["is_single_window"] is False
+        assert sp.metadata["consecutive_windows"] >= 2
+
+    # cand_b match is isolated (run == 1) -> is_single_window == True
+    for sp in spans_b:
+        assert sp.metadata["is_single_window"] is True
+        assert sp.metadata["consecutive_windows"] == 1
+
+    # Default score calculation: single-window match from cand_b is EXCLUDED from headline percentage
+    sources_map = {"cand_a": cand_a, "cand_b": cand_b}
+    res_default = compute_similarity_score(
+        raw, spans, sources_map, include_single_window_semantic=False
+    )
+    # Check that cand_b has 0% in headline score
+    cand_b_match = next((s for s in res_default.sources if s.source_id == "cand_b"), None)
+    assert cand_b_match is not None
+    assert cand_b_match.percentage == 0.0
+    # Headline percentage only reflects cand_a
+    cand_a_match = next(s for s in res_default.sources if s.source_id == "cand_a")
+    assert cand_a_match.percentage > 0.0
+    assert res_default.similarity_percentage == cand_a_match.percentage
+
+    # When user enables include_single_window_semantic=True, cand_b is included
+    res_with_single = compute_similarity_score(
+        raw, spans, sources_map, include_single_window_semantic=True
+    )
+    cand_b_match_incl = next(s for s in res_with_single.sources if s.source_id == "cand_b")
+    assert cand_b_match_incl.percentage > 0.0
+    assert res_with_single.similarity_percentage > res_default.similarity_percentage
 
 
 @pytest.mark.slow

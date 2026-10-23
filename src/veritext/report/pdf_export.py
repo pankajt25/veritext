@@ -263,7 +263,7 @@ def export_report_pdf(
     # 6. Top Matched Passages Excerpts (Top 10)
     active_matches = [
         h for h in report.highlights
-        if h.id not in ignored and h.category in ("exact match", "paraphrase")
+        if h.id not in ignored and h.category in ("exact match", "paraphrase", "possible paraphrase (review)")
     ][:10]
 
     if active_matches:

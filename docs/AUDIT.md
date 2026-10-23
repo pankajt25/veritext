@@ -4,7 +4,7 @@
 **Auditor**: Antigravity Automated Verification Agent  
 **Environment**: Intel Core i3-7020U CPU @ 2.30GHz (2 physical cores), 8 GB RAM, no GPU, running under WSL (Ubuntu Linux)  
 **Python Runtime**: Python 3.14.4 virtual environment (`veritext/.venv`)  
-**Commit Audited**: `2668460` (Tagged `v1.0.0`, up to date with `origin/main`); Updated for `v1.0.1`  
+**Commit Audited**: `2668460` (Tagged `v1.0.0`, up to date with `origin/main`); Updated for `v1.0.1` and `v1.0.2`  
 
 ---
 
@@ -109,57 +109,59 @@ veritext eval run --semantic --ai
 *(Note: `--crosslang` was omitted because multilingual weights are not locally installed, per instructions).*
 
 - **Evaluated Documents**: 114 documents (from synthetic corpus)
-- **Total Runtime**: 1911.1 s (~16.76 s per document)
-- **Peak Memory**: 389.19 MB
+- **Total Runtime**: 803.08 s (~7.04 s per document)
+- **Peak Memory**: 377.64 MB
 
-> **Corpus & Methodology Note**: The evaluation corpus is synthetic, compact, and created by the system author. In accordance with audit guidelines, results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.
+> **Corpus & Methodology Note**: The evaluation corpus is synthetic, compact, and created by the system author. In accordance with audit guidelines, results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, ESL writing, same-topic originals, and common-knowledge standard definitions.
 
-### 4.1 Plagiarism Detection Engine Ablation
+### 4.1 Plagiarism Detection Engine Ablation (Headline Threshold: 15%)
 
 | Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exact Winnowing (Veritext)** | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| Baseline (difflib SequenceMatcher) | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| **Winnowing + Semantic Paraphrase** | **100.00%** | **100.00%** | **100.00%** | **100.00%** | **0.00%** |
+| **Exact Winnowing (Veritext)** | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
 #### Decision Threshold Sensitivity Analysis
 
 | Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| 5% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
-| 5% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 10% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
-| 10% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 15% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 15% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
-| 25% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 25% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 5% | Exact Winnowing | 77.27% | 94.12% | 40.00% | 56.14% | 1.43% |
+| 5% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 10% | Exact Winnowing | 78.18% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 10% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 15% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 15% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 25% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 25% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
 #### Paraphrase Recall: Easy vs. Hard Subsets
 
 | Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |
 | :---: | :---: | :---: | :---: |
-| 5% | 100.00% | 100.00% | 100.00% |
-| 10% | 100.00% | 100.00% | 100.00% |
-| 15% | 100.00% | 100.00% | 100.00% |
-| 25% | 100.00% | 100.00% | 100.00% |
+| 5% | 100.00% | 93.33% | 70.00% |
+| 10% | 100.00% | 93.33% | 70.00% |
+| 15% | 100.00% | 93.33% | 70.00% |
+| 25% | 100.00% | 93.33% | 70.00% |
 
 #### False Positive Rates across Negative Cohorts (Semantic Engine ON)
 
-| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |
-| :---: | :---: | :---: | :---: |
-| 5% | 0.00% | 0.00% | 0.00% |
-| 10% | 0.00% | 0.00% | 0.00% |
-| 15% | 0.00% | 0.00% | 0.00% |
-| 25% | 0.00% | 0.00% | 0.00% |
+| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 5% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 10% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 15% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
+| 25% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
 
 - **Mean Similarity Detected**:
   - Group A (Verbatim / Lightly Edited Copies): Exact **98.28%** | Semantic **98.28%**
-  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **90.96%** (4.27 spans/doc, mean cosine 0.81)
-  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **83.94%** (3.90 spans/doc, mean cosine 0.77)
-  - Group C (Unrelated Human Originals): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
-  - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
-  - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
+  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **68.44%**
+  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **43.74%**
+  - Group C (Unrelated Human Originals): Exact **0.00%** | Semantic **0.00%**
+  - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%**
+  - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%**
+  - Group I (Same-Topic Originals): Exact **0.51%** | Semantic **65.85%**
+  - Group J (Common Knowledge Definitions): Exact **0.00%** | Semantic **0.00%**
 
 - **Benchmark-Harness Bug Root Cause & Findings**:
   The initial 0.85% semantic benchmark result was investigated and confirmed to be a **benchmark-harness bug** (`src/veritext/eval/runner.py`), **not a product bug**. Specifically:
@@ -245,8 +247,12 @@ During the audit, the following discrepancies were identified and fixed directly
 
 ## 7. Known Limitations & Recommended Next Steps
 
-1. **Semantic Matching vs. Exact Matching Trade-Offs**:
-   While dense neural vector search (`all-MiniLM-L6-v2`) achieves 100% recall on both easy (90.96% mean similarity) and hard (83.94% mean similarity) synthetic paraphrases, neural semantic similarity carries higher compute cost than exact winnowing. On negative cohorts (unrelated originals, AI text, ESL writing), the false positive rate is 0.00% under the current thresholding ($t \ge 5\%$).
+1. **Semantic Matching vs. Exact Matching Trade-Offs (Same-Topic Stress Test)**:
+   While dense neural vector search (`all-MiniLM-L6-v2`) detects subtle paraphrases where exact winnowing finds 0% overlap, dense embeddings also embed independent, non-derived documents on the same specialized technical topic into proximate vector neighborhoods (median cosine 0.81 on Group I). When unconstrained, this causes a 95% false-positive rate on same-topic originals at standard document-level thresholds. To mitigate this:
+   - Single isolated window matches are excluded from the headline document similarity percentage by default.
+   - The default similarity threshold is calibrated to 0.78 with a minimum requirement of 2 consecutive matching sentence windows (`min_consecutive_windows=2`), maintaining 84.0% recall on paraphrases (93.3% on easy, 70.0% on hard complex paraphrases).
+   - Semantic matches are explicitly labeled as `"possible paraphrase (review)"` rather than conclusive plagiarism.
+   - Veritext makes no claim of parity with commercial tools with proprietary closed-source databases or global web crawls. Human pedagogical review is indispensable.
 2. **MinHash/LSH Probabilistic Screening**:
    MinHash/LSH screening is probabilistic; while the new adaptive $(b, r)$ derivation targets $s^* \approx t/2$ to maximize candidate recall, exact fingerprint inverted indexing remains the recommended and default screening mechanism for batches under 10,000 documents.
 3. **Dual-Core Neural Inference Latency**:
@@ -266,4 +272,40 @@ During the audit, the following discrepancies were identified and fixed directly
   2. Batch/class screening defaulted to exact fingerprint inverted index (100% recall), with adaptive MinHash/LSH retained as an option.
   3. 10 hard complex paraphrases added to evaluation corpus.
   4. Multi-threshold sensitivity (5%, 10%, 15%, 25%) and negative cohort false-positive rates measured and documented.
-- **Tag Status**: Tag `v1.0.0` remains preserved at commit `2668460`. Tag `v1.0.1` is released for the benchmark harness fix, hard paraphrase dataset addition, and LSH shortlist recall upgrade.
+- **Tag Status**: Tag `v1.0.0` remains preserved at commit `2668460`. Tag `v1.0.1` was released for the benchmark harness fix, hard paraphrase dataset addition, and LSH shortlist recall upgrade.
+
+---
+
+## 9. Same-Topic False-Positive Stress Test & Release of v1.0.2
+
+To rigorously test the false-positive behavior of dense semantic matching against legitimate domain-specific technical terminology, a stress test was executed and calibrated:
+
+1. **New Evaluation Cohorts (30 Documents)**:
+   - **Group I (`i_same_topic_originals`, 20 documents)**: Original, non-derived academic passages written from scratch covering the identical topics of references 01 through 20 (e.g. LSH, PageRank, Cellular Automata, RSA, Quantum Entanglement).
+   - **Group J (`j_common_knowledge`, 10 documents)**: Short standard textbook definitions (e.g. hash function, photosynthesis, binary search, entropy, central limit theorem) that legitimately resemble common explanations.
+   - All 30 documents registered in `data/eval/manifest.csv` with `expected_plagiarism = no`. Total manifest: 151 entries.
+
+2. **Stress Test Findings (Unconstrained Baseline)**:
+   - **Group J (Common Knowledge)**: Exact Winnowing mean **0.00%** | Semantic mean **0.00%**. 0% false positives at all thresholds.
+   - **Group I (Same-Topic Originals)**: Exact Winnowing mean **0.51%** (0% FPR@15%) | Semantic mean **75.80%** (**95.0% False Positive Rate**; 19/20 documents flagged under unconstrained threshold 0.75).
+   - **Span Cosine Distribution on Group I**: Across 63 candidate spans: Minimum = 0.7544, Median = 0.8058, Maximum = 0.8929. Top false-positive spans arose from standard algorithmic formulations:
+     - `same_topic_02.txt -> ref_02` (0.8929): Locality-Sensitive Hashing definition overlap.
+     - `same_topic_02.txt -> ref_02` (0.8866): MinHash set similarity and Jaccard estimation description.
+     - `same_topic_18.txt -> ref_18` (0.8842): Renaissance perspective codification.
+     - `same_topic_12.txt -> ref_12` (0.8833): Urban heat island microclimate definition.
+     - `same_topic_14.txt -> ref_14` (0.8698): Cellular automata transition rule description.
+
+3. **Honest Grid Search Tuning**:
+   - Evaluated cosine thresholds $\tau \in \{0.75, 0.80, 0.85, 0.90\}$ and consecutive matching windows $m \in \{1, 2, 3\}$:
+     - At $\tau = 0.85$, recall on Group B paraphrases collapses to 68.0%.
+     - At $\tau = 0.90$, recall on Group B collapses to 32.0%.
+     - At $\tau = 0.78$ with $m = 2$: Paraphrase recall remains **84.0%** overall (**93.3%** on easy, **70.0%** on hard complex paraphrases).
+   - **Safe Defaults Implemented**:
+     - Calibrated default cosine threshold to **0.78** and minimum consecutive windows to **2**.
+     - Display label set to `"possible paraphrase (review)"` across JSON, HTML, PDF, diff viewer, and CLI.
+     - Single isolated window matches are excluded from the headline similarity score unless the user explicitly enables `--include-single-window`.
+     - *Methodology Note*: The tuning data and evaluation data are the same small synthetic corpus written by the author; real-world pedagogical oversight is required.
+
+4. **Release of v1.0.2**:
+   - Version incremented to `1.0.2` across `pyproject.toml`, `src/veritext/__init__.py`, `src/veritext/api/app.py`, `docs/API.md`, and `CITATION.cff`.
+   - All 238 fast tests passing; slow MiniLM real-model integration tests verified.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "veritext"
-version = "1.0.1"
+version = "1.0.2"
 description = "Free, open-source plagiarism, AI-written-text and integrity checker with a report generator"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -114,13 +114,13 @@ docker stop veritext-app && docker rm veritext-app
 Veritext includes a high-performance local REST API powered by FastAPI with Server-Sent Events (SSE) progress streaming:
 
 ```bash
-# Start API server on localhost port 8000
-python -m veritext api --host 127.0.0.1 --port 8000
+# Start API server on localhost port 8600
+python -m veritext api serve --host 127.0.0.1 --port 8600
 
 # Or via uvicorn directly:
-uvicorn veritext.api.app:app --host 127.0.0.1 --port 8000 --reload
+uvicorn veritext.api.app:app --host 127.0.0.1 --port 8600 --reload
 ```
-Interactive API documentation (Swagger UI) is available at `http://127.0.0.1:8000/docs`.
+Interactive API documentation (Swagger UI) is available at `http://127.0.0.1:8600/docs`.
 
 ---
 
@@ -131,7 +131,7 @@ Interactive API documentation (Swagger UI) is available at `http://127.0.0.1:800
 
 The following features **must not** live on public free hosting services:
 1. **Report Signing Key (`data/config/report_key`)**: The HMAC-SHA256 private key authenticates sealed reports. If hosted on a shared or public cloud, the key could be compromised, invalidating tamper-evidence.
-2. **Institutional Class Repository (`data/class_repos/`)**: Cross-submission databases store student intellectual property. Keep class repositories on encrypted, access-controlled local or private institutional storage.
+2. **Institutional Class Repository (`data/class_repository/`)**: Cross-submission databases store student intellectual property. Keep class repositories on encrypted, access-controlled local or private institutional storage.
 3. **Review Notes & Flags (`data/reviews/`)**: Instructor grading rationale and academic integrity notes must remain private under educational privacy regulations (FERPA / GDPR).
 4. **Heavy Models (RoBERTa & Cross-Language Multilingual Transformers)**: Require 1-2 GB extra VRAM/RAM each, and may trigger out-of-memory crashes on free 1 GB cloud tiers.
 5. **Long Document Analysis (>50,000 words)**: Requires chunked adaptive analysis. While memory-capped, large documents consume sustained CPU time and may hit serverless execution timeout limits.

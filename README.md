@@ -105,7 +105,7 @@ veritext batch /path/to/submissions/ --threshold 0.25
 veritext classrepo add cs101_fall2024 /path/to/submissions/
 
 # Start local REST API server with SSE progress streaming
-veritext api --host 127.0.0.1 --port 8000
+veritext api serve --host 127.0.0.1 --port 8600
 
 # Execute the evaluation benchmark suite
 veritext eval run --out data/eval/results
@@ -118,23 +118,38 @@ veritext timing calibrate
 
 ## Evaluation & Benchmark Summary
 
-Veritext was evaluated against a labeled synthetic benchmark dataset of 110 documents across copies, paraphrases, originals, AI-generated text, non-native English essays, tortured-phrase spun texts, and colluding class submissions.
+Veritext was evaluated against a small synthetic benchmark dataset of 110 documents (104 evaluated) across copies, paraphrases, originals, AI-generated text, non-native English essays, tortured-phrase spun texts, and colluding class submissions.
 
-| Engine / Module | Metric Tested | Result | Standard / Baseline |
+### Plagiarism Detection Ablation
+
+| Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Exact Winnowing (Veritext)** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+
+- **Mean Similarity Detected**: Group A (Copies): **98.28%** | Group B (Paraphrases): **0.85%** | Group C (Originals): **0.00%**
+- **Paraphrase Detection**: Exact winnowing with $k=5$ detects verbatim and reordered text with 98.28% mean similarity. On individual document sections with sentence windowing (e.g., `paraphrased_doc.txt`), semantic embeddings achieve 33.1% similarity, though heavily rewritten synthetic corpus documents in Group B did not cross the 15% full-document similarity threshold (15 missed paraphrases).
+
+### AI Detection Ablation
+
+| Model / Configuration | Accuracy | Precision | Recall | F1 Score | Overall Human FPR | Non-Native (ESL) FPR |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Stylometry Only (Lite Mode)** | 77.50% | 100.00% | 40.00% | 57.14% | 0.00% | 0.00% |
+| DistilGPT2 Features Only | 62.50% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+| **Full Ensemble (Stylometry + DistilGPT2)** | **95.00%** | **100.00%** | **86.67%** | **92.86%** | **0.00%** | **0.00%** |
+
+- **ESL Safeguard**: Across all ablation tiers, False Positive Rate on non-native English writing (Group E) remains strictly **0.00%**.
+- **Failure Cases**: 2 out of 15 AI-generated documents scored below the ensemble decision threshold.
+
+### Integrity Checks, Collusion & Cryptographic Seals
+
+| Module | Metric Tested | Result | Standard / Baseline |
 | :--- | :--- | :---: | :---: |
-| **Plagiarism (Winnowing)** | Precision / Recall | **100.00%** / **50.00%** | Schleimer et al. (2003) |
-| **Plagiarism (Copies Group A)** | Mean Similarity Detected | **98.28%** | Exact & Obfuscated Copies |
-| **Plagiarism (Originals Group C)** | False Positive Rate | **0.00%** | Zero false accusations |
-| **AI Detection (Stylometry)** | Precision / Overall Accuracy | **100.00%** / **77.50%** | Lite Mode (CPU-only) |
-| **AI Detection (Human Text)** | False Positive Rate (Human) | **0.00%** | Zero false positives on human text |
-| **AI Detection (Non-Native ESL)**| False Positive Rate (ESL) | **0.00%** | Zero false positives on ESL writing |
 | **Spinner Forensics** | Precision / Recall | **100.00%** / **100.00%** | Cabanac et al. (2021) |
 | **Batch Collusion Matrix** | Expected Clusters Discovered | **YES** | Pairwise Winnowing |
-| **MinHash / LSH Screening** | Candidate Pair Recall | **100.00%** | Carter-Wegman 128-perm |
+| **MinHash / LSH Screening** | True Pairs Candidate Recall | **50.00%** | Carter-Wegman 128-perm |
 | **Cryptographic Report Seals** | Tamper Detection Rate | **100.00%** | HMAC-SHA256 (1-char edit) |
-
-> [!NOTE] Paraphrase Detection Note
-> Exact winnowing with $k=5$ relies on shared 5-grams and detects verbatim/obfuscated text with 98.28% mean similarity. Paraphrased passages with 0 shared 5-grams require semantic vector matching (`--semantic`).
 
 ---
 

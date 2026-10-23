@@ -6,15 +6,15 @@
     "uncertain_max": 65.0
   },
   "full": {
-    "intercept": -3.8090100288391113,
+    "intercept": -3.733894109725952,
     "coefficients": {
-      "perplexity": -0.0019120190991088748,
+      "perplexity": -0.00303902686573565,
       "burstiness": 0.0,
-      "mean_log_rank": -0.006334349978715181,
+      "mean_log_rank": -0.0026981777045875788,
       "sentence_length_variance": 0.0,
-      "discourse_marker_density": 1.2562534809112549,
+      "discourse_marker_density": 1.2544082403182983,
       "repeated_ngram_rate": 0.0,
-      "type_token_ratio": 0.005822508130222559
+      "type_token_ratio": 0.005660807713866234
     }
   },
   "stylometry_only": {

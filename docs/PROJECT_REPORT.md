@@ -51,7 +51,44 @@ Over seven engineering stages, Veritext evolved from a foundational parser into 
 
 ---
 
-## 2. References Cited
+## 2. Evaluation & Benchmark Results
+
+Veritext was benchmarked on a synthetic dataset of 110 documents (104 evaluated in full benchmark) executed entirely offline on dual-core hardware.
+
+### Plagiarism Detection Engine Ablation
+
+| Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Exact Winnowing (Veritext)** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+
+- **Mean Similarity Detected**: Group A (Copies): **98.28%** | Group B (Paraphrases): **0.85%** | Group C (Originals): **0.00%**
+- **Paraphrase Analysis**: Exact winnowing achieves 98.28% mean similarity on verbatim and obfuscated copies with zero false positives on human text. Dense semantic vector matching detects paraphrased passages at the sentence window level (33.1% on `paraphrased_doc.txt`), but across the synthetic corpus in Group B, full-document interval-union overlap averaged 0.85%, missing the 15% document-level threshold (15 missed paraphrases).
+
+### AI Detection Ablation
+
+| Model / Configuration | Accuracy | Precision | Recall | F1 Score | Overall Human FPR | Non-Native (ESL) FPR |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Stylometry Only (Lite Mode)** | 77.50% | 100.00% | 40.00% | 57.14% | 0.00% | 0.00% |
+| DistilGPT2 Features Only | 62.50% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+| **Full Ensemble (Stylometry + DistilGPT2)** | **95.00%** | **100.00%** | **86.67%** | **92.86%** | **0.00%** | **0.00%** |
+
+- **ESL Protection**: False positive rate on non-native English writing (Group E) is strictly **0.00%** across all ablation tiers.
+- **Ensemble Synergy**: DistilGPT2 alone fails to classify short text (0.00% recall), but when combined with stylometry, recall increases from 40.00% to 86.67% and accuracy reaches 95.00%.
+
+### Forensic Integrity Checks & Seals
+
+| Module | Metric Tested | Result | Standard / Baseline |
+| :--- | :--- | :---: | :---: |
+| **Spinner Forensics** | Precision / Recall | **100.00%** / **100.00%** | Cabanac et al. (2021) |
+| **Batch Collusion Matrix** | Expected Clusters Discovered | **YES** | Pairwise Winnowing |
+| **MinHash / LSH Screening** | True Pairs Candidate Recall | **50.00%** | Carter-Wegman 128-perm |
+| **Cryptographic Report Seals** | Tamper Detection Rate | **100.00%** | HMAC-SHA256 (1-char edit) |
+
+---
+
+## 3. References Cited
 
 1. **Schleimer, S., Wilkerson, D. S., & Aiken, A. (2003)**. *Winnowing: local algorithms for document fingerprinting*. In Proceedings of the 2003 ACM SIGMOD International Conference on Management of Data (pp. 76–85).
 2. **Cabanac, G., Labbe, C., & Magazinov, A. (2021)**. *Tortured phrases: A dubious writing style emerging in science*. arXiv preprint arXiv:2107.06751.

@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-22 14:58:18 UTC",
+  "timestamp": "2026-10-23 11:06:33 UTC",
   "total_documents_manifest": 110,
   "total_documents_evaluated": 104,
-  "total_runtime_seconds": 162.21,
-  "runtime_per_document_seconds": 1.5597,
-  "peak_memory_mb": 253.33,
+  "total_runtime_seconds": 641.61,
+  "runtime_per_document_seconds": 6.1694,
+  "peak_memory_mb": 377.52,
   "flags": {
-    "semantic": false,
-    "ai": false,
+    "semantic": true,
+    "ai": true,
     "crosslang": false
   },
   "plagiarism": {
@@ -41,7 +41,18 @@
       "f1": 0.6667,
       "fpr": 0.0
     },
-    "winnowing_and_semantic": null,
+    "winnowing_and_semantic": {
+      "tp": 15,
+      "fp": 0,
+      "tn": 15,
+      "fn": 15,
+      "total": 45,
+      "accuracy": 0.6667,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6667,
+      "fpr": 0.0
+    },
     "failure_cases": {
       "missed_paraphrases_count": 15,
       "missed_paraphrases": [
@@ -156,7 +167,7 @@
     }
   },
   "ai_detection": {
-    "distilgpt2_evaluated": false,
+    "distilgpt2_evaluated": true,
     "stylometry_only": {
       "tp": 6,
       "fp": 0,
@@ -171,8 +182,32 @@
       "fpr_human_overall": 0.0,
       "fpr_non_native_esl": 0.0
     },
-    "distilgpt2_only": null,
-    "full_ensemble": null,
+    "distilgpt2_only": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 25,
+      "fn": 15,
+      "total": 40,
+      "accuracy": 0.625,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "fpr": 0.0
+    },
+    "full_ensemble": {
+      "tp": 13,
+      "fp": 0,
+      "tn": 25,
+      "fn": 2,
+      "total": 40,
+      "accuracy": 0.95,
+      "precision": 1.0,
+      "recall": 0.8667,
+      "f1": 0.9286,
+      "fpr": 0.0,
+      "fpr_human_overall": 0.0,
+      "fpr_non_native_esl": 0.0
+    },
     "failure_cases": {
       "false_positives_human_count": 0,
       "false_positives_human": [],

@@ -47,6 +47,7 @@ data/reviews/*
 data/config/api_keys.json
 data/config/report_key*
 data/api_jobs.sqlite
+audit_tmp/
 *.tmp
 
 # Environment variables

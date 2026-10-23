@@ -1,167 +1,311 @@
 {
-  "timestamp": "2026-10-23 11:06:33 UTC",
-  "total_documents_manifest": 110,
-  "total_documents_evaluated": 104,
-  "total_runtime_seconds": 641.61,
-  "runtime_per_document_seconds": 6.1694,
-  "peak_memory_mb": 377.52,
+  "timestamp": "2026-10-23 13:12:29 UTC",
+  "total_documents_manifest": 120,
+  "total_documents_evaluated": 114,
+  "total_runtime_seconds": 1911.1,
+  "runtime_per_document_seconds": 16.7641,
+  "peak_memory_mb": 389.19,
   "flags": {
     "semantic": true,
     "ai": true,
     "crosslang": false
   },
   "plagiarism": {
-    "threshold": 0.15,
+    "headline_threshold": 0.15,
+    "thresholds_tested": [
+      0.05,
+      0.1,
+      0.15,
+      0.25
+    ],
+    "multi_threshold_metrics": {
+      "winnowing_only": {
+        "0.05": {
+          "tp": 16,
+          "fp": 0,
+          "tn": 40,
+          "fn": 24,
+          "total": 80,
+          "accuracy": 0.7,
+          "precision": 1.0,
+          "recall": 0.4,
+          "f1": 0.5714,
+          "fpr": 0.0
+        },
+        "0.1": {
+          "tp": 16,
+          "fp": 0,
+          "tn": 40,
+          "fn": 24,
+          "total": 80,
+          "accuracy": 0.7,
+          "precision": 1.0,
+          "recall": 0.4,
+          "f1": 0.5714,
+          "fpr": 0.0
+        },
+        "0.15": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        },
+        "0.25": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        }
+      },
+      "winnowing_and_semantic": {
+        "0.05": {
+          "tp": 40,
+          "fp": 0,
+          "tn": 40,
+          "fn": 0,
+          "total": 80,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        "0.1": {
+          "tp": 40,
+          "fp": 0,
+          "tn": 40,
+          "fn": 0,
+          "total": 80,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        "0.15": {
+          "tp": 40,
+          "fp": 0,
+          "tn": 40,
+          "fn": 0,
+          "total": 80,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        "0.25": {
+          "tp": 40,
+          "fp": 0,
+          "tn": 40,
+          "fn": 0,
+          "total": 80,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        }
+      },
+      "baseline_difflib": {
+        "0.05": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        },
+        "0.1": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        },
+        "0.15": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        },
+        "0.25": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 40,
+          "fn": 25,
+          "total": 80,
+          "accuracy": 0.6875,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        }
+      }
+    },
+    "group_fpr_by_threshold": {
+      "c_original": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "d_ai_style": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "e_non_native": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      }
+    },
+    "paraphrase_recall_breakdown": {
+      "a_copies": {
+        "0.05": 1.0,
+        "0.1": 1.0,
+        "0.15": 1.0,
+        "0.25": 1.0
+      },
+      "b_paraphrases": {
+        "0.05": 1.0,
+        "0.1": 1.0,
+        "0.15": 1.0,
+        "0.25": 1.0
+      },
+      "b_paraphrases_hard": {
+        "0.05": 1.0,
+        "0.1": 1.0,
+        "0.15": 1.0,
+        "0.25": 1.0
+      }
+    },
     "mean_similarity_per_group": {
+      "b_paraphrases": 0.9096,
+      "d_ai_style": 0.0,
+      "b_paraphrases_hard": 0.8394,
       "a_copies": 0.9828,
-      "b_paraphrases": 0.0085,
+      "e_non_native": 0.0,
       "c_original": 0.0
+    },
+    "mean_similarity_by_engine": {
+      "exact": {
+        "a_copies": 0.9828,
+        "b_paraphrases": 0.0085,
+        "b_paraphrases_hard": 0.0,
+        "c_original": 0.0,
+        "d_ai_style": 0.0,
+        "e_non_native": 0.0
+      },
+      "semantic": {
+        "a_copies": 0.9828,
+        "b_paraphrases": 0.9096,
+        "b_paraphrases_hard": 0.8394,
+        "c_original": 0.0,
+        "d_ai_style": 0.0,
+        "e_non_native": 0.0
+      },
+      "baseline": {
+        "a_copies": 0.9683,
+        "b_paraphrases": 0.0817,
+        "b_paraphrases_hard": 0.0534,
+        "c_original": 0.0253,
+        "d_ai_style": 0.0262,
+        "e_non_native": 0.0262
+      }
     },
     "winnowing_only": {
       "tp": 15,
       "fp": 0,
-      "tn": 15,
-      "fn": 15,
-      "total": 45,
-      "accuracy": 0.6667,
+      "tn": 40,
+      "fn": 25,
+      "total": 80,
+      "accuracy": 0.6875,
       "precision": 1.0,
-      "recall": 0.5,
-      "f1": 0.6667,
+      "recall": 0.375,
+      "f1": 0.5455,
+      "fpr": 0.0
+    },
+    "winnowing_and_semantic": {
+      "tp": 40,
+      "fp": 0,
+      "tn": 40,
+      "fn": 0,
+      "total": 80,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
       "fpr": 0.0
     },
     "baseline_difflib": {
       "tp": 15,
       "fp": 0,
-      "tn": 15,
-      "fn": 15,
-      "total": 45,
-      "accuracy": 0.6667,
+      "tn": 40,
+      "fn": 25,
+      "total": 80,
+      "accuracy": 0.6875,
       "precision": 1.0,
-      "recall": 0.5,
-      "f1": 0.6667,
+      "recall": 0.375,
+      "f1": 0.5455,
       "fpr": 0.0
     },
-    "winnowing_and_semantic": {
-      "tp": 15,
-      "fp": 0,
-      "tn": 15,
-      "fn": 15,
-      "total": 45,
-      "accuracy": 0.6667,
-      "precision": 1.0,
-      "recall": 0.5,
-      "f1": 0.6667,
-      "fpr": 0.0
+    "span_level_metrics": {
+      "mean_exact_spans_per_doc": {
+        "a_copies": 1.0,
+        "b_paraphrases": 0.07,
+        "b_paraphrases_hard": 0.0,
+        "c_original": 0.0,
+        "d_ai_style": 0.0,
+        "e_non_native": 0.0
+      },
+      "mean_semantic_spans_per_doc": {
+        "a_copies": 0.0,
+        "b_paraphrases": 4.27,
+        "b_paraphrases_hard": 3.9,
+        "c_original": 0.0,
+        "d_ai_style": 0.0,
+        "e_non_native": 0.0
+      },
+      "mean_semantic_cosine_similarity": 0.7905,
+      "total_semantic_spans_found": 103
     },
     "failure_cases": {
-      "missed_paraphrases_count": 15,
-      "missed_paraphrases": [
-        {
-          "file": "para_01.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0696,
-          "notes": "Paraphrase of ref_01.txt"
-        },
-        {
-          "file": "para_02.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0856,
-          "notes": "Paraphrase of ref_02.txt"
-        },
-        {
-          "file": "para_03.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0294,
-          "notes": "Paraphrase of ref_03.txt"
-        },
-        {
-          "file": "para_04.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.2264,
-          "notes": "Paraphrase of ref_04.txt"
-        },
-        {
-          "file": "para_05.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.1272,
-          "baseline_score": 0.1922,
-          "notes": "Paraphrase of ref_05.txt"
-        },
-        {
-          "file": "para_06.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0482,
-          "notes": "Paraphrase of ref_06.txt"
-        },
-        {
-          "file": "para_07.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0411,
-          "notes": "Paraphrase of ref_07.txt"
-        },
-        {
-          "file": "para_08.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0483,
-          "notes": "Paraphrase of ref_08.txt"
-        },
-        {
-          "file": "para_09.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0843,
-          "notes": "Paraphrase of ref_09.txt"
-        },
-        {
-          "file": "para_10.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.1573,
-          "notes": "Paraphrase of ref_10.txt"
-        },
-        {
-          "file": "para_11.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0963,
-          "notes": "Paraphrase of ref_11.txt"
-        },
-        {
-          "file": "para_12.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0356,
-          "notes": "Paraphrase of ref_12.txt"
-        },
-        {
-          "file": "para_13.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0379,
-          "notes": "Paraphrase of ref_13.txt"
-        },
-        {
-          "file": "para_14.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0316,
-          "notes": "Paraphrase of ref_14.txt"
-        },
-        {
-          "file": "para_15.txt",
-          "group": "b_paraphrases",
-          "winnow_score": 0.0,
-          "baseline_score": 0.0419,
-          "notes": "Paraphrase of ref_15.txt"
-        }
-      ],
+      "missed_paraphrases_easy_count": 0,
+      "missed_paraphrases_easy": [],
+      "missed_paraphrases_hard_count": 0,
+      "missed_paraphrases_hard": [],
+      "missed_paraphrases_count": 0,
       "false_positives_count": 0,
       "false_positives": []
     }
@@ -231,32 +375,47 @@
     "total_submissions": 8,
     "expected_collusion_pairs": [
       [
-        "class_sub_03.txt",
-        "class_sub_04.txt"
-      ],
-      [
         "class_sub_01.txt",
         "class_sub_02.txt"
+      ],
+      [
+        "class_sub_03.txt",
+        "class_sub_04.txt"
       ]
     ],
     "detected_pairwise_pairs": [
       [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
+      ],
+      [
         "class_sub_03.txt",
         "class_sub_04.txt"
-      ],
+      ]
+    ],
+    "fingerprint_index_candidates": [
       [
         "class_sub_01.txt",
         "class_sub_02.txt"
+      ],
+      [
+        "class_sub_03.txt",
+        "class_sub_04.txt"
       ]
     ],
     "minhash_lsh_candidates": [
       [
         "class_sub_01.txt",
         "class_sub_02.txt"
+      ],
+      [
+        "class_sub_03.txt",
+        "class_sub_04.txt"
       ]
     ],
     "expected_clusters_found": true,
-    "lsh_shortlist_recall": 0.5
+    "fingerprint_shortlist_recall": 1.0,
+    "lsh_shortlist_recall": 1.0
   },
   "seal_verification": {
     "total_reports_tested": 6,

@@ -141,6 +141,186 @@ def test_mock_semantic_vector_search(tmp_path):
     assert spans[0].score >= 0.80
 
 
+def test_semantic_produces_paraphrase_spans_exact_does_not_mocked(tmp_path):
+    """Regression test proving that semantic matching finds paraphrase spans where exact winnowing finds none.
+
+    Uses mock embeddings (no network / fast) on heavily reworded sentences sharing zero 5-token k-grams.
+    """
+    from veritext.fingerprint.index import FingerprintIndex
+    from veritext.fingerprint.winnow import winnow
+    from veritext.ingest.pipeline import split_paragraphs, split_sentences
+    from veritext.normalize.normalize import normalize_text
+    from veritext.similarity.exact import find_exact_matches
+    from veritext.similarity.scorer import compute_similarity_score
+
+    # Setup reference and candidate
+    ref_text = (
+        "Consensus protocols in distributed systems guarantee that a cluster of independent nodes "
+        "agrees upon a unified replicated state machine despite network partitions and arbitrary failures."
+    )
+    # Rephrased document sharing zero 5-token k-grams with reference
+    query_text = (
+        "Agreement algorithms across decentralized networks ensure that multiple compute servers "
+        "converge on an identical transition history notwithstanding link disruptions and machine crashes."
+    )
+
+    # 1. Exact Winnowing
+    canon_ref = normalize_text(ref_text)
+    canon_q = normalize_text(query_text)
+
+    # Verify zero 5-gram overlap between query and reference
+    q_tokens = canon_q.tokens
+    ref_tokens = canon_ref.tokens
+    q_5grams = set(tuple(q_tokens[i:i+5]) for i in range(len(q_tokens) - 4))
+    ref_5grams = set(tuple(ref_tokens[i:i+5]) for i in range(len(ref_tokens) - 4))
+    assert len(q_5grams & ref_5grams) == 0, "Query and reference must share 0 five-grams"
+
+    db_path = tmp_path / "test_exact.sqlite"
+    index = FingerprintIndex(db_path=db_path)
+    cand = SourceCandidate(
+        id="ref_consensus",
+        title="Distributed Consensus",
+        authors=["Lamport et al."],
+        url="https://example.org/consensus",
+        origin="web",
+        year=2020,
+        text=ref_text,
+    )
+    index.index_source_candidate(cand)
+    sources_map = {"ref_consensus": cand}
+
+    fps_q = winnow(q_tokens, k=5, w=4)
+    exact_spans = find_exact_matches(
+        doc_clean_text=query_text,
+        canonical=canon_q,
+        doc_fingerprints=fps_q,
+        index=index,
+        sources_map=sources_map,
+        min_words=5,
+    )
+    # Exact winnowing must produce ZERO matches
+    assert len(exact_spans) == 0
+    score_exact = compute_similarity_score(query_text, exact_spans, sources_map).similarity_percentage
+    assert score_exact == 0.0
+
+    # 2. Semantic Matching with Mock Model
+    doc = Document(
+        raw_text=query_text,
+        clean_text=query_text,
+        sentences=split_sentences(query_text),
+        paragraphs=split_paragraphs(query_text),
+        removed_sections=[],
+        file_type="txt",
+    )
+
+    class ControlledParaphraseModel:
+        def encode(self, sentences, **kwargs):
+            # Map both semantic concepts to identical embedding vector
+            vecs = []
+            for s in sentences:
+                if "Agreement algorithms" in s or "Consensus protocols" in s:
+                    v = np.ones(384, dtype=np.float32)
+                else:
+                    v = np.zeros(384, dtype=np.float32)
+                norm = np.linalg.norm(v)
+                vecs.append(v / (norm if norm != 0 else 1.0))
+            return np.array(vecs, dtype=np.float32)
+
+    cache = EmbeddingCache(tmp_path / "test_sem_cache.sqlite")
+    sem_spans = find_semantic_matches(
+        document=doc,
+        candidates=[cand],
+        exact_spans=exact_spans,
+        threshold=0.75,
+        cache=cache,
+        model=ControlledParaphraseModel(),
+    )
+
+    # Semantic matching MUST produce paraphrase matches
+    assert len(sem_spans) >= 1
+    assert sem_spans[0].type in ("near_copy", "paraphrase")
+    assert sem_spans[0].score >= 0.75
+
+    # Overall similarity jumps from 0.0% to > 50%
+    score_semantic = compute_similarity_score(query_text, sem_spans, sources_map).similarity_percentage
+    assert score_semantic > 50.0
+
+
+@pytest.mark.slow
+def test_real_paraphrase_fixtures_minilm_detection():
+    """Slow integration test verifying semantic detection on real paraphrase fixtures against references.
+
+    Evaluates para_01, para_02, and para_03 against ref_01, ref_02, and ref_03 using all-MiniLM-L6-v2.
+    Proves that exact winnowing finds 0 matches on these fixtures while semantic search detects all three.
+    """
+    from pathlib import Path
+    from veritext.eval.dataset import load_document
+    from veritext.fingerprint.index import FingerprintIndex
+    from veritext.fingerprint.winnow import winnow
+    from veritext.ingest.pipeline import split_paragraphs, split_sentences
+    from veritext.normalize.normalize import normalize_text
+    from veritext.similarity.exact import find_exact_matches
+    from veritext.similarity.scorer import compute_similarity_score
+    from veritext.similarity.semantic import find_semantic_matches, get_embedding_model
+
+    model = get_embedding_model()
+    assert model is not None, "MiniLM model must be available locally"
+
+    base_dir = Path(__file__).resolve().parent.parent / "data" / "eval"
+    docs_dir = base_dir / "documents"
+    refs_dir = base_dir / "references"
+
+    fixtures = [("para_01.txt", "ref_01.txt"), ("para_02.txt", "ref_02.txt"), ("para_03.txt", "ref_03.txt")]
+
+    for para_fn, ref_fn in fixtures:
+        para_txt = load_document(para_fn, docs_dir)
+        ref_txt = load_document(ref_fn, refs_dir)
+
+        cand = SourceCandidate(
+            id=ref_fn,
+            title=ref_fn,
+            authors=["Benchmark Reference"],
+            url=f"local://{ref_fn}",
+            origin="eval",
+            year=2024,
+            text=ref_txt,
+        )
+        sources_map = {ref_fn: cand}
+
+        # Exact winnowing
+        canon = normalize_text(para_txt)
+        fps = winnow(canon.tokens, k=5, w=4)
+        idx_mock = FingerprintIndex()
+        idx_mock.index_source_candidate(cand)
+        exact_spans = find_exact_matches(para_txt, canon, fps, idx_mock, sources_map, min_words=6)
+        sim_exact = compute_similarity_score(para_txt, exact_spans, sources_map).similarity_percentage
+
+        # Semantic matching
+        doc_obj = Document(
+            raw_text=para_txt,
+            clean_text=para_txt,
+            sentences=split_sentences(para_txt),
+            paragraphs=split_paragraphs(para_txt),
+            removed_sections=[],
+            file_type="txt",
+            path=para_fn,
+        )
+        sem_spans = find_semantic_matches(
+            document=doc_obj,
+            candidates=[cand],
+            exact_spans=exact_spans,
+            threshold=0.70,
+            model=model,
+        )
+        sim_sem = compute_similarity_score(para_txt, exact_spans + sem_spans, sources_map).similarity_percentage
+
+        # Exact winnowing finds minimal or zero spans
+        assert sim_exact < 10.0, f"Expected exact score < 10% on paraphrase, got {sim_exact}%"
+        # Semantic search finds multiple high-confidence paraphrase spans
+        assert len(sem_spans) >= 2, f"Expected >= 2 semantic spans on {para_fn}, got {len(sem_spans)}"
+        assert sim_sem >= 50.0, f"Expected semantic similarity >= 50% on {para_fn}, got {sim_sem}%"
+
+
 @pytest.mark.slow
 def test_real_paraphrase_detection():
     """

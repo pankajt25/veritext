@@ -7,10 +7,12 @@ import pytest
 from veritext.batch.analysis import find_clusters, run_batch_analysis
 from veritext.fingerprint.minhash import (
     LSHIndex,
+    compute_lsh_params,
     compute_minhash,
     compute_minhash_pure_python,
     minhash_jaccard,
     screen_batch_candidates,
+    screen_fingerprint_candidates,
 )
 
 
@@ -187,3 +189,66 @@ def test_minhash_sqlite_caching(tmp_path):
     # Second call: loads from cache
     sig2 = compute_minhash(tokens, use_cache=True, cache_db_path=cache_file)
     assert sig1 == sig2
+
+
+def test_compute_lsh_params_bounds_and_invariants():
+    """Verifies that derived (b, r) never exceeds num_perm and adapts to target threshold."""
+    for t in [0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.99]:
+        b, r = compute_lsh_params(threshold=t, num_perm=128)
+        assert b >= 1
+        assert r >= 1
+        assert b * r <= 128, f"Invariant violated: {b} * {r} = {b * r} > 128 for threshold {t}"
+
+    # Specifically for default threshold 0.30: target t/2 = 0.15 -> chooses (64, 2)
+    b_30, r_30 = compute_lsh_params(threshold=0.30, num_perm=128)
+    assert b_30 == 64
+    assert r_30 == 2
+    assert b_30 * r_30 <= 128
+    s_star = (1.0 / b_30) ** (1.0 / r_30)
+    assert abs(s_star - 0.125) < 1e-6
+
+
+def test_fingerprint_shortlist_100pct_recall_on_200_docs():
+    """Verifies exact inverted-index fingerprint screening guarantees 100% recall of overlapping pairs."""
+    rng = random.Random(123)
+    num_docs = 200
+    doc_fps = {}
+
+    for i in range(num_docs):
+        if i % 15 == 1:
+            # Shared fingerprints with predecessor
+            prev = list(doc_fps[f"doc_{i-1}"])
+            shared = set(prev[:10])
+            unique = set(rng.sample(range(10000, 20000), 15))
+            doc_fps[f"doc_{i}"] = shared | unique
+        else:
+            doc_fps[f"doc_{i}"] = set(rng.sample(range(1000, 5000), 20))
+
+    candidate_pairs = screen_fingerprint_candidates(doc_fps)
+
+    # Every pair that shares >= 1 hash MUST be in candidate_pairs
+    for i in range(num_docs):
+        for j in range(i + 1, num_docs):
+            id_a, id_b = f"doc_{i}", f"doc_{j}"
+            shared_cnt = len(doc_fps[id_a] & doc_fps[id_b])
+            if shared_cnt > 0:
+                pair_key = tuple(sorted([id_a, id_b]))
+                assert pair_key in candidate_pairs, f"Pair {pair_key} missed with {shared_cnt} shared hashes"
+
+
+def test_batch_small_cohort_safety_net(tmp_path):
+    """Verifies that for N <= 150 submissions, screening is bypassed and all pairs evaluated."""
+    sub_dir = tmp_path / "cohort_small"
+    sub_dir.mkdir()
+
+    for i in range(5):
+        (sub_dir / f"doc_{i}.txt").write_text(
+            f"Document {i} discussing distributed algorithms and consensus protocols with unique suffix {i}." * 5,
+            encoding="utf-8",
+        )
+
+    res = run_batch_analysis(sub_dir, threshold=0.30)
+    assert len(res.submissions) == 5
+    # Matrix diagonal is 100
+    for i in range(5):
+        assert res.matrix[i][i] == 100.0

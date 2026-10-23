@@ -40,6 +40,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Use anonymised submission IDs instead of original filenames",
     )
+    parser.add_argument(
+        "--method",
+        type=str,
+        choices=["fingerprint", "lsh"],
+        default="fingerprint",
+        help="Screening method for cohorts > 150 documents: 'fingerprint' (exact inverted index, default) or 'lsh' (MinHash/LSH approximate filter)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -48,10 +55,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Error: Submissions directory not found: {folder_path}", file=sys.stderr)
         return 1
 
+    if args.method == "lsh":
+        print(
+            "Warning: MinHash/LSH screening is an approximate probabilistic filter. "
+            "While faster for very large datasets, it may have lower recall than the exact "
+            "fingerprint-sharing index for pairs near the threshold.",
+            file=sys.stderr,
+        )
+
     print("=" * 70)
     print("VERITEXT BATCH PAIRWISE COLLUSION & SIMILARITY ANALYSIS")
     print(f"Directory: {folder_path.name}")
     print(f"Threshold: {args.threshold * 100.0:.0f}%")
+    print(f"Screening Method: {args.method}")
     print("=" * 70)
 
     try:
@@ -59,6 +75,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             folder=folder_path,
             threshold=args.threshold,
             anonymize=args.anonymize,
+            method=args.method,
             progress_callback=lambda msg, frac: print(f"[{frac*100.0:3.0f}%] {msg}"),
         )
     except Exception as e:

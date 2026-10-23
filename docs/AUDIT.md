@@ -4,7 +4,7 @@
 **Auditor**: Antigravity Automated Verification Agent  
 **Environment**: Intel Core i3-7020U CPU @ 2.30GHz (2 physical cores), 8 GB RAM, no GPU, running under WSL (Ubuntu Linux)  
 **Python Runtime**: Python 3.14.4 virtual environment (`veritext/.venv`)  
-**Commit Audited**: `2668460` (Tagged `v1.0.0`, up to date with `origin/main`)  
+**Commit Audited**: `2668460` (Tagged `v1.0.0`, up to date with `origin/main`); Updated for `v1.0.1`  
 
 ---
 
@@ -13,7 +13,7 @@
 A comprehensive, stage-by-stage audit and benchmark verification was conducted on **Veritext**. Every stage deliverable from Stage 1 through Stage 7 (including the Adaptive Analysis pack and change packs 6B, 6C, and 6D) was tested directly against demo files and verified with automated test suites.
 
 - **Checklist Results**: **52 / 52 Items PASS (100%)**, 0 FAIL, 0 PARTIAL.
-- **Automated Test Suite**: **239 / 239 Tests Passing** (233 fast tests in 101.06s; 6 slow tests in 456.25s).
+- **Automated Test Suite**: **244 / 244 Tests Passing** (237 fast tests in 135.71s; 7 slow integration tests in 475.2s).
 - **Code Linter**: `ruff check .` reported **All checks passed!** with 0 errors.
 - **Lazy Import Verification**: Confirmed via `sys.modules` that importing `veritext` and executing document integrity checks does **not** load `torch` or `transformers`.
 - **Repo & Security Hygiene**: Zero secrets or credentials detected across tracked files and the last 30 commits. `.gitignore` strictly covers all temporary, cache, database, and credential artifacts.
@@ -35,7 +35,7 @@ A comprehensive, stage-by-stage audit and benchmark verification was conducted o
 | **Stage 2** | HTTP caching and API rate limiting | **PASS** | `tests/test_http_and_cache.py` (5 passed). `data/cache/http_cache.sqlite` holds 78 cached requests; sliding window rate limiter prevents 429 errors. |
 | **Stage 3** | Text normalisation (homoglyphs, zero-width, offset map) | **PASS** | `tests/test_normalize.py` (7 passed). Cyrillic/Greek homoglyphs canonicalized, zero-width spaces stripped, bidirectional tokens removed. |
 | **Stage 3** | Mathematical winnowing guarantee | **PASS** | `tests/test_fingerprint.py` (5 passed). Parameters $k=5, w=4$; guarantee holds for any shared token run $\ge 8$ words. |
-| **Stage 3** | Exact, near-copy and dense semantic matching | **PASS** | `tests/test_similarity.py`, `tests/test_semantic.py` (9 passed). Hybrid scoring accurately unions overlapping match intervals. |
+| **Stage 3** | Exact, near-copy and dense semantic matching | **PASS** | `tests/test_similarity.py`, `tests/test_semantic.py` (11 passed). Hybrid scoring accurately unions overlapping match intervals. *(Note: The initial benchmark ablation discrepancy was confirmed as a benchmark-harness bug—empty sentence lists—not a product bug; see Section 4.1 & 6).* |
 | **Stage 3** | Similarity CLI differential validation on demo corpus | **PASS** | `veritext check --offline`: `copied_doc.txt` = **85.5%** (HIGH); `paraphrased_doc.txt` = **33.1%** (MEDIUM, 3 semantic spans); `original_doc.txt` = **0.0%** (NEAR ZERO). |
 | **Stage 4** | AI detection (DistilGPT2 + stylometry ensemble) | **PASS** | `tests/test_ai_detect.py` (14 passed). Validated on full neural ensemble. |
 | **Stage 4** | Stylometry-only Lite Mode fallback | **PASS** | `tests/test_ai_detect.py`. Fallback operates CPU-only without neural models. |
@@ -72,12 +72,12 @@ A comprehensive, stage-by-stage audit and benchmark verification was conducted o
 | **Stage 6D** | Side-by-side excerpt diff visualizer | **PASS** | `tests/test_diff.py` (5 passed). Token-level diff generation with contextual matching. |
 | **Stage 6D** | Cryptographic report sealing & verification | **PASS** | `tests/test_seal.py` (3 passed). Canonical JSON + HMAC-SHA256. Valid report returned `VALID`; single-character modification returned `TAMPERED`. |
 | **Stage 6D** | Cross-language matching graceful degradation | **PASS** | `tests/test_crosslang.py` (7 passed). Gracefully reports disabled state without crashing when multilingual model weights are not downloaded. |
-| **Stage 6D** | Vectorized Carter-Wegman MinHash & LSH pre-screening | **PASS** | `tests/test_minhash.py` (5 passed). 128-permutation hash signatures with band partitioning filter candidate pairs with sub-quadratic complexity. |
+| **Stage 6D** | Vectorized Carter-Wegman MinHash & LSH pre-screening | **PASS** | `tests/test_minhash.py` (8 passed). Exact fingerprint inverted index default (100% recall); adaptive 128-perm Carter-Wegman LSH option with dynamically derived $(b, r)$ ($s^* \approx t/2$). |
 | **Stage 6D** | Non-accusatory authorship timeline terminology | **PASS** | `tests/test_authorship.py` (4 passed). Findings use neutral pedagogical terminology (*"timeline milestone"*, *"revisions"*) with explicit disclaimers. |
 | **Stage 6D** | CORE API optional configuration | **PASS** | `tests/test_core.py` (3 passed). Safely bypasses CORE API when API key is unconfigured. |
 | **Stage 6D** | Live Server-Sent Events (SSE) progress streaming | **PASS** | `tests/test_api.py`. Progress percentages and stage events stream to connected clients via `/progress/{job_id}`. |
 | **Stage 7** | Lazy module imports (no PyTorch imported during checks) | **PASS** | Verified via `sys.modules`: importing `veritext` packages and running `run_all_checks()` executes with `torch` and `transformers` completely unloaded. |
-| **Stage 7** | Evaluation benchmark dataset & automated runner | **PASS** | `tests/test_eval.py` (7 passed). 110-document synthetic dataset evaluated via `veritext eval run`. |
+| **Stage 7** | Evaluation benchmark dataset & automated runner | **PASS** | `tests/test_eval.py` (6 passed). 114-document synthetic dataset evaluated via `veritext eval run`. Runner verified to populate sentence structures, index reference store, evaluate easy vs. hard paraphrases, and track negative cohort FPR. |
 | **Stage 7** | Report polish phrasing & single disclaimer rule | **PASS** | `tests/test_report.py`. Displays *"Insufficient text (under 150 words, not scored)"*; enforces exactly one consolidated disclaimer block across exports. |
 | **Stage 7** | Packaging, console script & optional extras | **PASS** | `pyproject.toml` defines console entrypoint `veritext`, extras (`lite`, `full`, `dev`). `veritext --help` operational. |
 | **Stage 7** | Dockerfile, deployment guide & citation specifications | **PASS** | `Dockerfile`, `DEPLOY.md`, `CITATION.cff` verified and aligned with production defaults. |
@@ -108,23 +108,66 @@ veritext eval run --semantic --ai
 ```
 *(Note: `--crosslang` was omitted because multilingual weights are not locally installed, per instructions).*
 
-- **Evaluated Documents**: 104 documents (from synthetic corpus)
-- **Total Runtime**: 641.61 s (~6.17 s per document)
-- **Peak Memory**: 377.52 MB
+- **Evaluated Documents**: 114 documents (from synthetic corpus)
+- **Total Runtime**: 1911.1 s (~16.76 s per document)
+- **Peak Memory**: 389.19 MB
+
+> **Corpus & Methodology Note**: The evaluation corpus is synthetic, compact, and created by the system author. In accordance with audit guidelines, results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.
 
 ### 4.1 Plagiarism Detection Engine Ablation
 
 | Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exact Winnowing (Veritext)** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
-| Baseline (difflib SequenceMatcher) | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
-| **Winnowing + Semantic Paraphrase** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| **Exact Winnowing (Veritext)** | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | **100.00%** | **100.00%** | **100.00%** | **100.00%** | **0.00%** |
+
+#### Decision Threshold Sensitivity Analysis
+
+| Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
+| 5% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 5% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 10% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 10% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 15% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 15% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 25% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 25% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+
+#### Paraphrase Recall: Easy vs. Hard Subsets
+
+| Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |
+| :---: | :---: | :---: | :---: |
+| 5% | 100.00% | 100.00% | 100.00% |
+| 10% | 100.00% | 100.00% | 100.00% |
+| 15% | 100.00% | 100.00% | 100.00% |
+| 25% | 100.00% | 100.00% | 100.00% |
+
+#### False Positive Rates across Negative Cohorts (Semantic Engine ON)
+
+| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |
+| :---: | :---: | :---: | :---: |
+| 5% | 0.00% | 0.00% | 0.00% |
+| 10% | 0.00% | 0.00% | 0.00% |
+| 15% | 0.00% | 0.00% | 0.00% |
+| 25% | 0.00% | 0.00% | 0.00% |
 
 - **Mean Similarity Detected**:
-  - Group A (Verbatim / Lightly Edited Copies): **98.28%**
-  - Group B (Paraphrased Passages): **0.85%**
-  - Group C (Unrelated Human Originals): **0.00%**
-- **Paraphrase Detection Findings**: Exact winnowing ($k=5$) reliably identifies verbatim text (Group A). Dense neural embeddings (`all-MiniLM-L6-v2`) detect paraphrasing on individual sentence windows (e.g., 33.1% similarity on `paraphrased_doc.txt`). However, on the synthetic benchmark dataset, heavy clause rephrasing across Group B resulted in full-document character overlap averaging 0.85%, which did not cross the 15% document-level classification threshold (15 missed paraphrases).
+  - Group A (Verbatim / Lightly Edited Copies): Exact **98.28%** | Semantic **98.28%**
+  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **90.96%** (4.27 spans/doc, mean cosine 0.81)
+  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **83.94%** (3.90 spans/doc, mean cosine 0.77)
+  - Group C (Unrelated Human Originals): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
+  - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
+  - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%** (0 false positive spans)
+
+- **Benchmark-Harness Bug Root Cause & Findings**:
+  The initial 0.85% semantic benchmark result was investigated and confirmed to be a **benchmark-harness bug** (`src/veritext/eval/runner.py`), **not a product bug**. Specifically:
+  1. **Empty Sentence Structures**: The benchmark runner's `_create_document()` constructed in-memory `Document` instances with empty `sentences=[]` and `paragraphs=[]` lists. Because semantic sliding windows require populated `Sentence` structures, no candidate windows were extracted during benchmark evaluation.
+  2. **Transient Library Indexing**: The runner queried the SQLite store without persistently indexing reference passages from `data/eval/references/`.
+  3. **Score Reporting Key**: The runner's ablation aggregator recorded the winnowing score rather than the semantic union score in `scores_by_group`.
+  
+  Once `_create_document()` was fixed to invoke `split_paragraphs()` and `split_sentences()` and reference indexing was ensured, semantic similarity jumped to **90.96%** on easy paraphrases and **83.94%** on the newly created hard paraphrase corpus (`para_hard_01` to `para_hard_10`), with **100% recall** across all evaluated thresholds (5% to 25%) and **0.00% false positive rates** across all negative cohorts.
 
 ### 4.2 AI Detection Ablation
 
@@ -143,7 +186,8 @@ veritext eval run --semantic --ai
 | :--- | :--- | :---: | :---: |
 | **Spinner / Tortured Phrases** | Precision / Recall | **100.00%** / **100.00%** | Cabanac et al. (2021) |
 | **Batch Collusion Matrix** | Expected Clusters Discovered | **YES** | Pairwise Winnowing |
-| **MinHash / LSH Screening** | True Pairs Candidate Recall | **50.00%** | Carter-Wegman 128-perm |
+| **Fingerprint Index Screening** | True Pairs Candidate Recall | **100.00%** | Exact Inverted Index (Default) |
+| **MinHash / LSH Screening** | True Pairs Candidate Recall | **100.00%** | Adaptive (64x2) Carter-Wegman 128-perm |
 | **Cryptographic Report Seals** | Tamper Detection Rate | **100.00%** | HMAC-SHA256 (1-char edit) |
 
 ---
@@ -191,24 +235,35 @@ During the audit, the following discrepancies were identified and fixed directly
 6. **Temporary Audit Directory in `.gitignore`**:
    - *Issue*: `audit_tmp/` was not explicitly listed in `.gitignore`.
    - *Fix*: Added `audit_tmp/` to `.gitignore`.
+7. **Benchmark Harness Bug Fix & LSH Shortlist Upgrade (v1.0.1)**:
+   - *Issue 1 (Benchmark Harness)*: The evaluation runner constructed synthetic `Document` objects with empty `sentences` lists and failed to persistently index reference documents into the SQLite candidate library before querying, resulting in artificially suppressed semantic paraphrase metrics (0.85%).
+   - *Fix 1*: Updated `src/veritext/eval/runner.py` to segment text using `split_paragraphs()` and `split_sentences()`, persistently index reference texts, record semantic scores, evaluate against 10 newly created hard complex paraphrases (`para_hard_01` to `para_hard_10`), and track false-positive rates on negative cohorts across thresholds 5%, 10%, 15%, 25%.
+   - *Issue 2 (LSH Recall)*: Fixed $(b=32, r=4)$ LSH configuration had low recall (50%) on moderate overlap pairs.
+   - *Fix 2*: Defaulted batch and class screening to an exact inverted index of shared winnowing fingerprints (100% recall, <60ms for 500 documents). Added `--method lsh` option with dynamically derived $(b, r)$ satisfying $b \times r \le 128$ and $(1/b)^{1/r} \approx t/2$, with an explicit user warning and small-batch ($N \le 150$) automatic bypass to exact pairwise winnowing.
 
 ---
 
 ## 7. Known Limitations & Recommended Next Steps
 
-1. **Paraphrase Document-Level Threshold Sensitivity**:
-   While dense neural vector search (`all-MiniLM-L6-v2`) detects individual paraphrased sentence windows with high cosine similarity (>0.90), heavily rewritten documents with low overall text density require a tuned document-level threshold or sliding window clustering to surpass the 15% full-document threshold.
-2. **Dual-Core Neural Inference Latency**:
+1. **Semantic Matching vs. Exact Matching Trade-Offs**:
+   While dense neural vector search (`all-MiniLM-L6-v2`) achieves 100% recall on both easy (90.96% mean similarity) and hard (83.94% mean similarity) synthetic paraphrases, neural semantic similarity carries higher compute cost than exact winnowing. On negative cohorts (unrelated originals, AI text, ESL writing), the false positive rate is 0.00% under the current thresholding ($t \ge 5\%$).
+2. **MinHash/LSH Probabilistic Screening**:
+   MinHash/LSH screening is probabilistic; while the new adaptive $(b, r)$ derivation targets $s^* \approx t/2$ to maximize candidate recall, exact fingerprint inverted indexing remains the recommended and default screening mechanism for batches under 10,000 documents.
+3. **Dual-Core Neural Inference Latency**:
    On dual-core CPUs without GPU acceleration, loading DistilGPT2 and running causal language modeling requires ~5-6 seconds per 200 words. For larger batches, Lite Mode (stylometry-only) remains the recommended default for responsive interactive workflows.
-3. **Open-Access Scholar API Coverage**:
+4. **Open-Access Scholar API Coverage**:
    Veritext queries public APIs (arXiv, CrossRef, OpenAlex, Europe PMC). It intentionally does not index paywalled publisher databases or proprietary institutional repositories.
 
 ---
 
-## 8. Defect Summary & Tag Recommendation
+## 8. Defect Summary & Release of v1.0.1
 
-- **PASS Count**: 52 items
+- **PASS Count**: 52 items (100%)
 - **FAIL Count**: 0 items
 - **PARTIAL Count**: 0 items
-- **All Defects Fixed**: Documentation typos, port discrepancy, and benchmark table additions were small defects and have been resolved.
-- **Tag Status**: The codebase conforms to `v1.0.0` deliverables. Because no core algorithm or public API signature was altered (only documentation alignment, benchmark results, and gitignore updates), tag `v1.0.0` remains completely valid. If you prefer to tag these documentation and benchmark additions as a patch release, `v1.0.1` can be created upon your approval.
+- **All Defects Fixed**:
+  1. Semantic benchmark wiring fixed (benchmark-harness bug resolved; 100% recall on easy and hard paraphrase benchmarks).
+  2. Batch/class screening defaulted to exact fingerprint inverted index (100% recall), with adaptive MinHash/LSH retained as an option.
+  3. 10 hard complex paraphrases added to evaluation corpus.
+  4. Multi-threshold sensitivity (5%, 10%, 15%, 25%) and negative cohort false-positive rates measured and documented.
+- **Tag Status**: Tag `v1.0.0` remains preserved at commit `2668460`. Tag `v1.0.1` is released for the benchmark harness fix, hard paraphrase dataset addition, and LSH shortlist recall upgrade.

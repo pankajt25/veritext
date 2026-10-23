@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this software or benchmark in your research, please cite it as below."
 title: "Veritext: Free, Open-Source Plagiarism, AI-Written Text and Academic Integrity Suite"
-version: 1.0.0
-date-released: 2026-10-22
+version: 1.0.1
+date-released: 2026-10-23
 url: "https://github.com/pankajt25/veritext"
 repository-code: "https://github.com/pankajt25/veritext"
 license: MIT

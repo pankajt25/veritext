@@ -40,9 +40,11 @@ from veritext.fingerprint.minhash import (
     compute_minhash,
     minhash_jaccard,
     screen_batch_candidates,
+    screen_fingerprint_candidates,
 )
 from veritext.fingerprint.winnow import winnow
 from veritext.ingest.models import Document
+from veritext.ingest.pipeline import split_paragraphs, split_sentences
 from veritext.normalize.normalize import normalize_text
 from veritext.report.seal import verify_report_seal
 from veritext.similarity.exact import find_exact_matches
@@ -56,12 +58,12 @@ DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" 
 
 
 def _create_document(text: str, path: Optional[str] = None) -> Document:
-    """Helper to instantiate a Document for evaluation checks."""
+    """Helper to instantiate a Document with populated sentence and paragraph spans."""
     return Document(
         raw_text=text,
         clean_text=text,
-        sentences=[],
-        paragraphs=[],
+        sentences=split_sentences(text),
+        paragraphs=split_paragraphs(text),
         removed_sections=[],
         file_type="txt",
         path=path,
@@ -133,7 +135,7 @@ class BenchmarkRunner:
 
         eval_doc_count = sum(
             len(grp_rows) for grp_rows in [
-                [r for r in self.manifest if r["group"] in ["a_copies", "b_paraphrases", "c_original"]],
+                [r for r in self.manifest if r["group"] in ["a_copies", "b_paraphrases", "b_paraphrases_hard", "c_original"]],
                 [r for r in self.manifest if r["group"] in ["d_ai_style", "e_non_native"]],
                 [r for r in self.manifest if r["group"] in ["f_spinner", "f_spinner_control"]],
                 [r for r in self.manifest if r["group"] in ["g_class_submissions"]],
@@ -167,8 +169,13 @@ class BenchmarkRunner:
         return summary
 
     def _evaluate_plagiarism(self) -> Dict[str, Any]:
-        """Evaluates plagiarism detection across groups a (copies), b (paraphrases), and c (originals)."""
-        logger.info("Evaluating plagiarism detection on groups a, b, c...")
+        """Evaluates plagiarism detection across positive cohorts (copies, easy & hard paraphrases)
+        and negative cohorts (originals, AI-generated text, and non-native English).
+
+        Assesses both document-level sensitivity across multiple decision thresholds (5%, 10%, 15%, 25%)
+        and span-level detection statistics.
+        """
+        logger.info("Evaluating plagiarism detection on positive and negative cohorts...")
 
         # Setup index for references
         db_file = self.out_dir / "eval_fingerprints.sqlite"
@@ -190,30 +197,44 @@ class BenchmarkRunner:
             sources_map[ref_id] = cand
             index.index_source_candidate(cand)
 
-        target_groups = {"a_copies", "b_paraphrases", "c_original"}
-        plag_rows = [r for r in self.manifest if r["group"] in target_groups]
+        eval_groups = {
+            "a_copies",
+            "b_paraphrases",
+            "b_paraphrases_hard",
+            "c_original",
+            "d_ai_style",
+            "e_non_native",
+        }
+        plag_rows = [r for r in self.manifest if r["group"] in eval_groups]
 
         y_true: List[bool] = []
-        y_pred_winnow: List[bool] = []
-        y_pred_baseline: List[bool] = []
-        y_pred_semantic: List[bool] = []
+        scores_winnow: List[float] = []
+        scores_baseline: List[float] = []
+        scores_semantic: List[float] = []
+        row_groups: List[str] = []
 
-        scores_by_group: Dict[str, List[float]] = {
-            "a_copies": [],
-            "b_paraphrases": [],
-            "c_original": [],
-        }
+        from collections import defaultdict
+        scores_by_group_exact: Dict[str, List[float]] = defaultdict(list)
+        scores_by_group_semantic: Dict[str, List[float]] = defaultdict(list)
+        scores_by_group_baseline: Dict[str, List[float]] = defaultdict(list)
 
-        missed_paraphrases: List[Dict[str, Any]] = []
+        exact_spans_by_group: Dict[str, List[int]] = defaultdict(list)
+        sem_spans_by_group: Dict[str, List[int]] = defaultdict(list)
+        sem_cosine_scores: List[float] = []
+
+        missed_paraphrases_easy: List[Dict[str, Any]] = []
+        missed_paraphrases_hard: List[Dict[str, Any]] = []
         false_positives: List[Dict[str, Any]] = []
 
-        SIM_THRESHOLD = 0.15  # 15% similarity threshold
+        HEADLINE_THRESHOLD = 0.15
+        TESTED_THRESHOLDS = [0.05, 0.10, 0.15, 0.25]
 
         for row in plag_rows:
             fname = row["file"]
             grp = row["group"]
             expected = row["expected_plagiarism"].lower() == "yes"
             y_true.append(expected)
+            row_groups.append(grp)
 
             text = load_document(fname, self.docs_dir)
 
@@ -230,25 +251,25 @@ class BenchmarkRunner:
             )
             sim_res = compute_similarity_score(text, exact_spans, sources_map)
             score_winnow = sim_res.similarity_percentage / 100.0
-            pred_winnow = score_winnow >= SIM_THRESHOLD
-            y_pred_winnow.append(pred_winnow)
-            scores_by_group[grp].append(score_winnow)
+            scores_winnow.append(score_winnow)
+            scores_by_group_exact[grp].append(score_winnow)
+            exact_spans_by_group[grp].append(len(exact_spans))
 
             # 2. Difflib SequenceMatcher Baseline
             base_score = max(
                 (difflib.SequenceMatcher(None, text, ref_txt).ratio() for ref_txt in self.references.values()),
                 default=0.0,
             )
-            pred_base = base_score >= 0.35  # SequenceMatcher standard threshold
-            y_pred_baseline.append(pred_base)
+            scores_baseline.append(base_score)
+            scores_by_group_baseline[grp].append(base_score)
 
             # 3. Winnowing + Semantic (if enabled)
             score_sem = score_winnow
-            pred_sem = pred_winnow
+            sem_spans = []
             if self.semantic:
                 try:
                     from veritext.similarity.semantic import find_semantic_matches
-                    doc_obj = _create_document(text)
+                    doc_obj = _create_document(text, path=fname)
                     cands_list = list(sources_map.values())
                     sem_spans = find_semantic_matches(
                         document=doc_obj,
@@ -259,25 +280,36 @@ class BenchmarkRunner:
                     all_spans = exact_spans + sem_spans
                     sim_sem_res = compute_similarity_score(text, all_spans, sources_map)
                     score_sem = sim_sem_res.similarity_percentage / 100.0
-                    pred_sem = score_sem >= SIM_THRESHOLD
+                    for s in sem_spans:
+                        sem_cosine_scores.append(s.score)
                 except Exception as e:
                     logger.warning(f"Semantic match skipped for {fname}: {e}")
-            y_pred_semantic.append(pred_sem)
 
-            # Track failure cases
-            if expected and not pred_winnow:
-                missed_paraphrases.append({
+            scores_semantic.append(score_sem)
+            scores_by_group_semantic[grp].append(score_sem)
+            sem_spans_by_group[grp].append(len(sem_spans))
+
+            # Track failure cases at headline threshold 0.15
+            active_score = score_sem if self.semantic else score_winnow
+            if expected and active_score < HEADLINE_THRESHOLD:
+                failure_record = {
                     "file": fname,
                     "group": grp,
                     "winnow_score": round(score_winnow, 4),
+                    "semantic_score": round(score_sem, 4) if self.semantic else None,
                     "baseline_score": round(base_score, 4),
                     "notes": row.get("notes", ""),
-                })
-            if not expected and pred_winnow:
+                }
+                if grp == "b_paraphrases":
+                    missed_paraphrases_easy.append(failure_record)
+                elif grp == "b_paraphrases_hard":
+                    missed_paraphrases_hard.append(failure_record)
+            if not expected and active_score >= HEADLINE_THRESHOLD:
                 false_positives.append({
                     "file": fname,
                     "group": grp,
                     "winnow_score": round(score_winnow, 4),
+                    "semantic_score": round(score_sem, 4) if self.semantic else None,
                     "notes": row.get("notes", ""),
                 })
 
@@ -287,32 +319,104 @@ class BenchmarkRunner:
                 "task": "plagiarism",
                 "ground_truth": expected,
                 "winnow_score": round(score_winnow, 4),
-                "winnow_pred": pred_winnow,
+                "winnow_pred": score_winnow >= HEADLINE_THRESHOLD,
                 "baseline_score": round(base_score, 4),
-                "baseline_pred": pred_base,
+                "baseline_pred": base_score >= 0.35,
                 "semantic_score": round(score_sem, 4) if self.semantic else None,
-                "semantic_pred": pred_sem if self.semantic else None,
+                "semantic_pred": (score_sem >= HEADLINE_THRESHOLD) if self.semantic else None,
+                "exact_spans_count": len(exact_spans),
+                "semantic_spans_count": len(sem_spans),
             })
 
             gc.collect()
 
-        metrics_winnow = binary_classification_metrics(y_true, y_pred_winnow)
-        metrics_baseline = binary_classification_metrics(y_true, y_pred_baseline)
-        metrics_semantic = (
-            binary_classification_metrics(y_true, y_pred_semantic) if self.semantic else None
-        )
+        # Multi-threshold metrics computation
+        winnow_by_thresh = {}
+        sem_by_thresh = {}
+        base_by_thresh = {}
+        fpr_by_group = {
+            "c_original": {},
+            "d_ai_style": {},
+            "e_non_native": {},
+        }
+        recall_by_group = {
+            "a_copies": {},
+            "b_paraphrases": {},
+            "b_paraphrases_hard": {},
+        }
+
+        for t in TESTED_THRESHOLDS:
+            # Winnowing
+            pred_w = [s >= t for s in scores_winnow]
+            winnow_by_thresh[t] = binary_classification_metrics(y_true, pred_w)
+
+            # Semantic (or exact if semantic disabled)
+            pred_s = [s >= t for s in scores_semantic]
+            sem_by_thresh[t] = binary_classification_metrics(y_true, pred_s)
+
+            # Baseline difflib (using SequenceMatcher threshold 0.35 for headline or scaled)
+            pred_b = [s >= (0.20 + t) for s in scores_baseline]
+            base_by_thresh[t] = binary_classification_metrics(y_true, pred_b)
+
+            # Group-specific FPR (false positive rate on negative cohorts under active engine)
+            active_preds = pred_s if self.semantic else pred_w
+            for neg_grp in ["c_original", "d_ai_style", "e_non_native"]:
+                neg_indices = [i for i, g in enumerate(row_groups) if g == neg_grp]
+                if neg_indices:
+                    fp_count = sum(1 for i in neg_indices if active_preds[i])
+                    fpr_by_group[neg_grp][t] = round(fp_count / len(neg_indices), 4)
+
+            # Group-specific Recall on positive cohorts
+            for pos_grp in ["a_copies", "b_paraphrases", "b_paraphrases_hard"]:
+                pos_indices = [i for i, g in enumerate(row_groups) if g == pos_grp]
+                if pos_indices:
+                    tp_count = sum(1 for i in pos_indices if active_preds[i])
+                    recall_by_group[pos_grp][t] = round(tp_count / len(pos_indices), 4)
+
+        # Span-level summary
+        span_metrics = {
+            "mean_exact_spans_per_doc": {
+                grp: round(mean(counts), 2) for grp, counts in exact_spans_by_group.items()
+            },
+            "mean_semantic_spans_per_doc": {
+                grp: round(mean(counts), 2) for grp, counts in sem_spans_by_group.items()
+            },
+            "mean_semantic_cosine_similarity": round(mean(sem_cosine_scores), 4) if sem_cosine_scores else 0.0,
+            "total_semantic_spans_found": len(sem_cosine_scores),
+        }
+
+        # Flat mean similarity mapping for backward-compatibility with plots and table
+        flat_means = {
+            grp: mean(scores_by_group_semantic[grp]) if self.semantic else mean(scores_by_group_exact[grp])
+            for grp in eval_groups
+        }
 
         return {
-            "threshold": SIM_THRESHOLD,
-            "mean_similarity_per_group": {
-                grp: mean(scs) for grp, scs in scores_by_group.items()
+            "headline_threshold": HEADLINE_THRESHOLD,
+            "thresholds_tested": TESTED_THRESHOLDS,
+            "multi_threshold_metrics": {
+                "winnowing_only": winnow_by_thresh,
+                "winnowing_and_semantic": sem_by_thresh if self.semantic else None,
+                "baseline_difflib": base_by_thresh,
             },
-            "winnowing_only": metrics_winnow,
-            "baseline_difflib": metrics_baseline,
-            "winnowing_and_semantic": metrics_semantic,
+            "group_fpr_by_threshold": fpr_by_group,
+            "paraphrase_recall_breakdown": recall_by_group,
+            "mean_similarity_per_group": flat_means,
+            "mean_similarity_by_engine": {
+                "exact": {grp: mean(scs) for grp, scs in scores_by_group_exact.items()},
+                "semantic": {grp: mean(scs) for grp, scs in scores_by_group_semantic.items()} if self.semantic else None,
+                "baseline": {grp: mean(scs) for grp, scs in scores_by_group_baseline.items()},
+            },
+            "winnowing_only": winnow_by_thresh[HEADLINE_THRESHOLD],
+            "winnowing_and_semantic": sem_by_thresh[HEADLINE_THRESHOLD] if self.semantic else None,
+            "baseline_difflib": base_by_thresh[HEADLINE_THRESHOLD],
+            "span_level_metrics": span_metrics,
             "failure_cases": {
-                "missed_paraphrases_count": len(missed_paraphrases),
-                "missed_paraphrases": missed_paraphrases,
+                "missed_paraphrases_easy_count": len(missed_paraphrases_easy),
+                "missed_paraphrases_easy": missed_paraphrases_easy,
+                "missed_paraphrases_hard_count": len(missed_paraphrases_hard),
+                "missed_paraphrases_hard": missed_paraphrases_hard,
+                "missed_paraphrases_count": len(missed_paraphrases_easy) + len(missed_paraphrases_hard),
                 "false_positives_count": len(false_positives),
                 "false_positives": false_positives,
             },
@@ -518,9 +622,10 @@ class BenchmarkRunner:
             tuple(sorted(["class_sub_03.txt", "class_sub_04.txt"])),
         }
 
-        # 1. Compute MinHash signatures and shingle sets
+        # 1. Compute MinHash signatures, shingle sets, and winnowing fingerprint sets
         signatures: Dict[str, List[int]] = {}
         shingle_sets: Dict[str, Set[str]] = {}
+        fingerprint_sets: Dict[str, Set[int]] = {}
 
         for row in coll_rows:
             fname = row["file"]
@@ -532,6 +637,8 @@ class BenchmarkRunner:
             }
             shingle_sets[fname] = shingles
             signatures[fname] = compute_minhash(shingles)
+            fps = winnow(tokens, k=5, w=4)
+            fingerprint_sets[fname] = {h for h, _ in fps}
 
         # 2. Pairwise Winnowing (ground truth discovery)
         detected_pairwise_pairs = set()
@@ -552,14 +659,25 @@ class BenchmarkRunner:
                 if jaccard >= 0.25:
                     detected_pairwise_pairs.add(tuple(sorted([f_a, f_b])))
 
-        # 3. MinHash/LSH Candidate Screening
-        lsh_candidate_pairs, _ = screen_batch_candidates(shingle_sets)
+        # 3. Exact Inverted Index Fingerprint Shortlist Screening (Default)
+        fp_candidate_pairs = screen_fingerprint_candidates(fingerprint_sets)
+        fp_pairs = {
+            tuple(sorted(p)) for p in fp_candidate_pairs
+        }
+
+        # 4. MinHash/LSH Candidate Screening (threshold=0.25 deriving (64, 2))
+        lsh_candidate_pairs, _ = screen_batch_candidates(shingle_sets, threshold=0.25)
         lsh_pairs = {
             tuple(sorted(p)) for p in lsh_candidate_pairs
         }
 
         # Check clusters and recall
         expected_clusters_found = detected_pairwise_pairs == true_pairs
+        fp_shortlist_recall = (
+            len(true_pairs.intersection(fp_pairs)) / len(true_pairs)
+            if true_pairs
+            else 1.0
+        )
         lsh_shortlist_recall = (
             len(true_pairs.intersection(lsh_pairs)) / len(true_pairs)
             if true_pairs
@@ -570,8 +688,10 @@ class BenchmarkRunner:
             "total_submissions": len(files),
             "expected_collusion_pairs": [list(p) for p in true_pairs],
             "detected_pairwise_pairs": [list(p) for p in detected_pairwise_pairs],
+            "fingerprint_index_candidates": [list(p) for p in fp_pairs],
             "minhash_lsh_candidates": [list(p) for p in lsh_pairs],
             "expected_clusters_found": expected_clusters_found,
+            "fingerprint_shortlist_recall": round(fp_shortlist_recall, 4),
             "lsh_shortlist_recall": round(lsh_shortlist_recall, 4),
         }
 
@@ -717,7 +837,11 @@ class BenchmarkRunner:
             f"- **Peak Memory**: {summary['peak_memory_mb']} MB",
             f"- **Date**: {summary['timestamp']}",
             "",
-            "## 1. Plagiarism Detection Engine",
+            "> **Corpus & Methodology Note**: The evaluation corpus is synthetic, compact, and created by the system author.",
+            "> In accordance with the Stage 7 audit guidelines, results are evaluated across distinct easy and hard paraphrase subsets,",
+            "> and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.",
+            "",
+            "## 1. Plagiarism Detection Engine (Headline Threshold: 15%)",
             "",
             "| Method | Accuracy | Precision | Recall | F1 Score | False Positive Rate |",
             "| :--- | :---: | :---: | :---: | :---: | :---: |",
@@ -727,16 +851,92 @@ class BenchmarkRunner:
 
         if p_sem:
             lines.append(
-                f"| Winnowing + Semantic Paraphrase | {p_sem.get('accuracy', 0):.2%} | {p_sem.get('precision', 0):.2%} | {p_sem.get('recall', 0):.2%} | {p_sem.get('f1', 0):.2%} | {p_sem.get('fpr', 0):.2%} |"
+                f"| **Winnowing + Semantic Paraphrase** | {p_sem.get('accuracy', 0):.2%} | {p_sem.get('precision', 0):.2%} | {p_sem.get('recall', 0):.2%} | {p_sem.get('f1', 0):.2%} | {p_sem.get('fpr', 0):.2%} |"
             )
 
-        mean_sims = summary["plagiarism"]["mean_similarity_per_group"]
+        # Multi-threshold sensitivity analysis
+        if "multi_threshold_metrics" in summary["plagiarism"]:
+            mtm = summary["plagiarism"]["multi_threshold_metrics"]
+            lines.extend([
+                "",
+                "### Decision Threshold Sensitivity Analysis",
+                "",
+                "| Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |",
+                "| :---: | :--- | :---: | :---: | :---: | :---: | :---: |",
+            ])
+            for thresh in [0.05, 0.10, 0.15, 0.25]:
+                w_m = mtm["winnowing_only"].get(thresh, {})
+                lines.append(
+                    f"| {thresh:.0%} | Exact Winnowing | {w_m.get('accuracy', 0):.2%} | {w_m.get('precision', 0):.2%} | {w_m.get('recall', 0):.2%} | {w_m.get('f1', 0):.2%} | {w_m.get('fpr', 0):.2%} |"
+                )
+                if mtm.get("winnowing_and_semantic"):
+                    s_m = mtm["winnowing_and_semantic"].get(thresh, {})
+                    lines.append(
+                        f"| {thresh:.0%} | **Winnowing + Semantic** | {s_m.get('accuracy', 0):.2%} | {s_m.get('precision', 0):.2%} | {s_m.get('recall', 0):.2%} | {s_m.get('f1', 0):.2%} | {s_m.get('fpr', 0):.2%} |"
+                    )
+
+        # Paraphrase Subset Recall Breakdown
+        if "paraphrase_recall_breakdown" in summary["plagiarism"]:
+            prb = summary["plagiarism"]["paraphrase_recall_breakdown"]
+            lines.extend([
+                "",
+                "### Paraphrase Recall: Easy vs. Hard Subsets",
+                "",
+                "| Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |",
+                "| :---: | :---: | :---: | :---: |",
+            ])
+            for thresh in [0.05, 0.10, 0.15, 0.25]:
+                rec_a = prb.get("a_copies", {}).get(thresh, 0.0)
+                rec_easy = prb.get("b_paraphrases", {}).get(thresh, 0.0)
+                rec_hard = prb.get("b_paraphrases_hard", {}).get(thresh, 0.0)
+                lines.append(
+                    f"| {thresh:.0%} | {rec_a:.2%} | {rec_easy:.2%} | {rec_hard:.2%} |"
+                )
+
+        # Negative Cohort FPR breakdown
+        if "group_fpr_by_threshold" in summary["plagiarism"]:
+            gfpr = summary["plagiarism"]["group_fpr_by_threshold"]
+            lines.extend([
+                "",
+                "### False Positive Rates across Negative Cohorts (Semantic Engine ON)",
+                "",
+                "| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |",
+                "| :---: | :---: | :---: | :---: |",
+            ])
+            for thresh in [0.05, 0.10, 0.15, 0.25]:
+                fpr_c = gfpr.get("c_original", {}).get(thresh, 0.0)
+                fpr_d = gfpr.get("d_ai_style", {}).get(thresh, 0.0)
+                fpr_e = gfpr.get("e_non_native", {}).get(thresh, 0.0)
+                lines.append(
+                    f"| {thresh:.0%} | {fpr_c:.2%} | {fpr_d:.2%} | {fpr_e:.2%} |"
+                )
+
+        # Mean similarity per group
+        by_eng = summary["plagiarism"].get("mean_similarity_by_engine")
+        if by_eng:
+            ex_m = by_eng.get("exact", {})
+            sem_m = by_eng.get("semantic") or {}
+            lines.extend([
+                "",
+                "**Mean Similarity Score by Cohort (Exact vs. Semantic)**:",
+                f"- Group A (Verbatim / Lightly Edited Copies): Exact **{ex_m.get('a_copies', 0):.2%}** | Semantic **{sem_m.get('a_copies', ex_m.get('a_copies', 0)):.2%}**",
+                f"- Group B (Easy Paraphrased Passages): Exact **{ex_m.get('b_paraphrases', 0):.2%}** | Semantic **{sem_m.get('b_paraphrases', 0):.2%}**",
+                f"- Group B (Hard Complex Paraphrases): Exact **{ex_m.get('b_paraphrases_hard', 0):.2%}** | Semantic **{sem_m.get('b_paraphrases_hard', 0):.2%}**",
+                f"- Group C (Unrelated Human Originals): Exact **{ex_m.get('c_original', 0):.2%}** | Semantic **{sem_m.get('c_original', 0):.2%}**",
+                f"- Group D (AI-Generated Text): Exact **{ex_m.get('d_ai_style', 0):.2%}** | Semantic **{sem_m.get('d_ai_style', 0):.2%}**",
+                f"- Group E (Non-Native English): Exact **{ex_m.get('e_non_native', 0):.2%}** | Semantic **{sem_m.get('e_non_native', 0):.2%}**",
+            ])
+        else:
+            mean_sims = summary["plagiarism"]["mean_similarity_per_group"]
+            lines.extend([
+                "",
+                "**Mean Similarity Score by Cohort**:",
+                f"- Group A (Verbatim / Lightly Edited Copies): **{mean_sims.get('a_copies', 0):.2%}**",
+                f"- Group B (Paraphrased Passages): **{mean_sims.get('b_paraphrases', 0):.2%}**",
+                f"- Group C (Unrelated Human Originals): **{mean_sims.get('c_original', 0):.2%}**",
+            ])
+
         lines.extend([
-            "",
-            "**Mean Similarity Score by Cohort**:",
-            f"- Group A (Verbatim / Lightly Edited Copies): **{mean_sims.get('a_copies', 0):.2%}**",
-            f"- Group B (Paraphrased Passages): **{mean_sims.get('b_paraphrases', 0):.2%}**",
-            f"- Group C (Unrelated Human Originals): **{mean_sims.get('c_original', 0):.2%}**",
             "",
             "## 2. AI-Written Text Detector",
             "",
@@ -758,12 +958,14 @@ class BenchmarkRunner:
             "| :--- | :--- | :---: | :---: |",
             f"| **Spinner / Tortured Phrases** | Precision / Recall | {spin['precision']:.2%} / {spin['recall']:.2%} | Cabanac et al. (2021) |",
             f"| **Batch Collusion Matrix** | Expected Clusters Discovered | {'YES' if coll['expected_clusters_found'] else 'NO'} | Pairwise Winnowing |",
-            f"| **MinHash / LSH Screening** | True Pairs Candidate Recall | {coll['lsh_shortlist_recall']:.2%} | Carter-Wegman 128-perm |",
+            f"| **Fingerprint Index Screening** | True Pairs Candidate Recall | {coll.get('fingerprint_shortlist_recall', 1.0):.2%} | Exact Inverted Index (Default) |",
+            f"| **MinHash / LSH Screening** | True Pairs Candidate Recall | {coll['lsh_shortlist_recall']:.2%} | Adaptive (64x2) 128-perm |",
             f"| **Cryptographic Report Seals** | Tamper Detection Rate | {seal['tamper_detection_rate']:.2%} | HMAC-SHA256 (1-char edit) |",
             "",
             "## 4. Notable Failure Cases & Honest Limitations",
             "",
-            f"- **Plagiarism Missed Paraphrases**: {summary['plagiarism']['failure_cases']['missed_paraphrases_count']} documents. (Exact winnowing with k=5 relies on identical token n-grams; heavily rephrased text with 0 shared 5-grams requires semantic vector matching).",
+            f"- **Plagiarism Missed Paraphrases (Easy)**: {summary['plagiarism']['failure_cases'].get('missed_paraphrases_easy_count', 0)} documents.",
+            f"- **Plagiarism Missed Paraphrases (Hard)**: {summary['plagiarism']['failure_cases'].get('missed_paraphrases_hard_count', 0)} documents.",
             f"- **AI False Positives on Human Text**: {summary['ai_detection']['failure_cases']['false_positives_human_count']} documents.",
             f"- **AI False Positives on Non-Native (ESL) Text**: {summary['ai_detection']['failure_cases']['false_positives_esl_count']} documents. (Stylometric variance can mistake uniform ESL syntax for machine generation; conservative thresholds are essential).",
             "",

@@ -20,7 +20,7 @@ Over seven engineering stages, Veritext evolved from a foundational parser into 
 
 ### Stage 3: Fingerprinting, Winnowing & Locality-Sensitive Hashing
 - **Winnowing Algorithm**: Implements the algorithm developed by **Schleimer, Wilkerson & Aiken (2003)**. Uses rolling 5-gram hashes filtered through sliding windows ($w=4$) to guarantee detection of shared substrings of length $\ge 8$ tokens while bounding index storage.
-- **Vectorized Carter-Wegman MinHash**: Generates 128-permutation Carter-Wegman hash signatures vectorised in 64-bit NumPy uint64 arithmetic ($(a \cdot x + b) \pmod{4294967311}$), indexed across multiple bands for sub-quadratic candidate pre-screening and backed by SQLite disk caching.
+- **Fingerprint Inverted Index & Adaptive MinHash/LSH**: Batch and class screening default to an exact inverted index of shared winnowing fingerprints, guaranteeing 100% candidate recall. For large batches, 128-permutation Carter-Wegman MinHash ($(a \cdot x + b) \pmod{4294967311}$) is available, with bands $b$ and rows $r$ derived automatically from the user threshold $t$ ($s^* = (1/b)^{1/r} \approx t/2$, subject to $b \times r \le 128$) to favour recall. Small cohorts ($N \le 150$) automatically bypass screening to evaluate exact pairwise winnowing.
 
 ### Stage 4: Candidate Source Retrieval & Reference Storage
 - **Local Reference Store**: High-throughput SQLite library indexing local textbook and journal collections.
@@ -53,18 +53,57 @@ Over seven engineering stages, Veritext evolved from a foundational parser into 
 
 ## 2. Evaluation & Benchmark Results
 
-Veritext was benchmarked on a synthetic dataset of 110 documents (104 evaluated in full benchmark) executed entirely offline on dual-core hardware.
+Veritext was benchmarked on a synthetic dataset of 114 evaluated documents executed entirely offline on dual-core hardware (total runtime: 1911.1 s, peak memory: 389.19 MB).
 
-### Plagiarism Detection Engine Ablation
+> **Methodology and Dataset Note**: The evaluation corpus is small, synthetic, and written by the same author as the detector. It serves to verify algorithmic guarantees, component wiring, and relative ranking rather than open-domain generalization. Results are evaluated across distinct easy and hard paraphrase subsets, and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.
+
+### Plagiarism Detection Engine Ablation (Headline Threshold: 15%)
 
 | Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exact Winnowing (Veritext)** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
-| Baseline (difflib SequenceMatcher) | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
-| **Winnowing + Semantic Paraphrase** | 66.67% | 100.00% | 50.00% | 66.67% | 0.00% |
+| **Exact Winnowing (Veritext)** | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| Baseline (difflib SequenceMatcher) | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| **Winnowing + Semantic Paraphrase** | **100.00%** | **100.00%** | **100.00%** | **100.00%** | **0.00%** |
 
-- **Mean Similarity Detected**: Group A (Copies): **98.28%** | Group B (Paraphrases): **0.85%** | Group C (Originals): **0.00%**
-- **Paraphrase Analysis**: Exact winnowing achieves 98.28% mean similarity on verbatim and obfuscated copies with zero false positives on human text. Dense semantic vector matching detects paraphrased passages at the sentence window level (33.1% on `paraphrased_doc.txt`), but across the synthetic corpus in Group B, full-document interval-union overlap averaged 0.85%, missing the 15% document-level threshold (15 missed paraphrases).
+#### Decision Threshold Sensitivity Analysis
+
+| Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
+| 5% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 5% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 10% | Exact Winnowing | 70.00% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 10% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 15% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 15% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+| 25% | Exact Winnowing | 68.75% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 25% | **Winnowing + Semantic** | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% |
+
+#### Paraphrase Recall: Easy vs. Hard Subsets
+
+| Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |
+| :---: | :---: | :---: | :---: |
+| 5% | 100.00% | 100.00% | 100.00% |
+| 10% | 100.00% | 100.00% | 100.00% |
+| 15% | 100.00% | 100.00% | 100.00% |
+| 25% | 100.00% | 100.00% | 100.00% |
+
+#### False Positive Rates across Negative Cohorts (Semantic Engine ON)
+
+| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) |
+| :---: | :---: | :---: | :---: |
+| 5% | 0.00% | 0.00% | 0.00% |
+| 10% | 0.00% | 0.00% | 0.00% |
+| 15% | 0.00% | 0.00% | 0.00% |
+| 25% | 0.00% | 0.00% | 0.00% |
+
+- **Mean Similarity Detected**:
+  - Group A (Verbatim / Lightly Edited Copies): Exact **98.28%** | Semantic **98.28%**
+  - Group B (Easy Paraphrased Passages): Exact **0.85%** | Semantic **90.96%** (4.27 spans/doc, mean cosine 0.81)
+  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **83.94%** (3.90 spans/doc, mean cosine 0.77)
+  - Group C (Unrelated Human Originals): Exact **0.00%** | Semantic **0.00%**
+  - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%**
+  - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%**
+- **Paraphrase Detection Analysis**: Exact winnowing achieves 98.28% mean similarity on verbatim copies with zero false positives, but achieves 0.85% on easy paraphrases and 0.00% on hard paraphrases. Dense semantic vector matching (`all-MiniLM-L6-v2`) bridges this gap completely, achieving 90.96% on easy paraphrases and 83.94% on hard complex paraphrases, yielding 100% recall and 0% false positives across all decision thresholds.
 
 ### AI Detection Ablation
 
@@ -83,7 +122,8 @@ Veritext was benchmarked on a synthetic dataset of 110 documents (104 evaluated 
 | :--- | :--- | :---: | :---: |
 | **Spinner Forensics** | Precision / Recall | **100.00%** / **100.00%** | Cabanac et al. (2021) |
 | **Batch Collusion Matrix** | Expected Clusters Discovered | **YES** | Pairwise Winnowing |
-| **MinHash / LSH Screening** | True Pairs Candidate Recall | **50.00%** | Carter-Wegman 128-perm |
+| **Fingerprint Index Screening** | True Pairs Candidate Recall | **100.00%** | Exact Inverted Index (Default) |
+| **MinHash / LSH Screening** | True Pairs Candidate Recall | **100.00%** | Adaptive (64x2) Carter-Wegman 128-perm |
 | **Cryptographic Report Seals** | Tamper Detection Rate | **100.00%** | HMAC-SHA256 (1-char edit) |
 
 ---

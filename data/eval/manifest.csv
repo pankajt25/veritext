@@ -29,6 +29,16 @@ para_12.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_12.txt
 para_13.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_13.txt
 para_14.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_14.txt
 para_15.txt,b_paraphrases,yes,no,no,none,Paraphrase of ref_15.txt
+para_hard_01.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_01.txt
+para_hard_02.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_02.txt
+para_hard_03.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_03.txt
+para_hard_04.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_04.txt
+para_hard_05.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_05.txt
+para_hard_06.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_06.txt
+para_hard_07.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_07.txt
+para_hard_08.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_08.txt
+para_hard_09.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_09.txt
+para_hard_10.txt,b_paraphrases_hard,yes,no,no,none,Hard complex paraphrase of ref_10.txt
 orig_01.txt,c_original,no,no,no,none,Fully original topic 01
 orig_02.txt,c_original,no,no,no,none,Fully original topic 02
 orig_03.txt,c_original,no,no,no,none,Fully original topic 03

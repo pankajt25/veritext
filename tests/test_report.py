@@ -286,7 +286,7 @@ def test_html_export_self_contained(sample_report):
     html_out = export_report_html(sample_report)
     assert "<!DOCTYPE html>" in html_out
     assert sample_report.document_name in html_out
-    assert "Plagiarism Similarity" in html_out
+    assert "Headline Similarity" in html_out or "Plagiarism Similarity" in html_out
     assert "AI Content Probability" in html_out
 
     # Ensure completely self-contained: no external stylesheets, scripts, or fonts

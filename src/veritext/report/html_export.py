@@ -39,6 +39,20 @@ def export_report_html(
 
     # 1. Metric values
     sim_pct = f"{report.similarity.similarity_percentage:.1f}%" if report.similarity else "N/A"
+    sim_meta = report.similarity.metadata if report.similarity else {}
+    score_label = html.escape(sim_meta.get("score_label", "exact & near-copy matches only"))
+    leads_cnt = sim_meta.get("paraphrase_leads_count", 0)
+    leads_pct = sim_meta.get("paraphrase_leads_percentage", 0.0)
+    strong_cnt = sim_meta.get("strong_leads_count", 0)
+    weak_cnt = sim_meta.get("weak_leads_count", 0)
+    expl_line = html.escape(sim_meta.get(
+        "explanatory_line",
+        "Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source.",
+    ))
+    guide_line = html.escape(sim_meta.get(
+        "interpretation_guide",
+        "Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only",
+    ))
     if report.ai_detect:
         ai_st = getattr(report.ai_detect, "status", "success")
         if ai_st in ("insufficient text", "insufficient_text"):
@@ -86,10 +100,14 @@ def export_report_html(
             s_url = s.source_url
             url_link = f'<a href="{html.escape(s_url)}" target="_blank" rel="noopener">{html.escape(s_url[:45])}...</a>' if s_url else "Local Library"
             pct_badge = f'<span style="font-weight:700; color:#dc2626;">{s.percentage:.1f}%</span>'
-            sources_rows.append(
-                f"<tr><td>{s_title}</td><td>{s_origin}</td><td>{url_link}</td><td>{pct_badge}</td><td>{s.matched_chars} chars</td></tr>"
+            leads_badge = (
+                f'<span style="color:#d97706; font-weight:600;">{s.lead_count} lead(s) ({s.strong_lead_count} strong)</span>'
+                if getattr(s, "lead_count", 0) > 0 else '<span style="color:#64748b;">0</span>'
             )
-    sources_tbody = "".join(sources_rows) if sources_rows else '<tr><td colspan="5" style="text-align:center; color:#64748b;">No matching sources detected.</td></tr>'
+            sources_rows.append(
+                f"<tr><td>{s_title}</td><td>{s_origin}</td><td>{url_link}</td><td>{pct_badge}</td><td>{leads_badge}</td><td>{s.matched_chars} chars</td></tr>"
+            )
+    sources_tbody = "".join(sources_rows) if sources_rows else '<tr><td colspan="6" style="text-align:center; color:#64748b;">No matching sources detected.</td></tr>'
 
     # 4. Top AI Sentences Table
     ai_rows = []
@@ -482,9 +500,14 @@ def export_report_html(
 
     <div class="grid-metrics">
       <div class="card">
-        <div class="metric-sub">Plagiarism Similarity</div>
+        <div class="metric-sub">Headline Similarity</div>
         <div class="metric-val" style="color: #dc2626;">{sim_pct}</div>
-        <div class="metric-sub">Exact & paraphrase matches</div>
+        <div class="metric-sub">{score_label}</div>
+      </div>
+      <div class="card">
+        <div class="metric-sub">Paraphrase Leads (Review)</div>
+        <div class="metric-val" style="color: #d97706; font-size: {'1.1rem' if len(str(leads_cnt)) > 4 else '1.8rem'};">{leads_cnt} <span style="font-size:1.0rem; color:#64748b;">({leads_pct:.1f}% text)</span></div>
+        <div class="metric-sub">{strong_cnt} strong, {weak_cnt} weak</div>
       </div>
       <div class="card">
         <div class="metric-sub">AI Content Probability</div>
@@ -496,6 +519,11 @@ def export_report_html(
         <div class="metric-val" style="color: #0284c7;">{high_cnt + warn_cnt + info_cnt}</div>
         <div class="metric-sub">{high_cnt} High, {warn_cnt} Warning, {info_cnt} Info</div>
       </div>
+    </div>
+
+    <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem; color: #92400e;">
+      <strong>Paraphrase Leads (Review):</strong> {expl_line}<br />
+      <strong>Interpretation Guide:</strong> {guide_line}
     </div>
 
     <div class="disclaimer-box">
@@ -526,14 +554,16 @@ def export_report_html(
     {diff_section}
 
     <div class="section card">
-      <h2>Matched Sources</h2>
+      <h2>Matched Sources & Paraphrase Leads</h2>
+      <p style="font-size:0.9rem; color:#64748b; margin-top:-8px; margin-bottom:12px;">{guide_line}</p>
       <table>
         <thead>
           <tr>
             <th>Source Title</th>
             <th>Origin</th>
             <th>URL / Repository</th>
-            <th>Overlap %</th>
+            <th>Headline Overlap</th>
+            <th>Paraphrase Leads</th>
             <th>Matched Size</th>
           </tr>
         </thead>

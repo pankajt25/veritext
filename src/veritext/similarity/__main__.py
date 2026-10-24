@@ -40,6 +40,12 @@ def main():
         help="Semantic similarity threshold (default: 0.78)",
     )
     parser.add_argument(
+        "--include-semantic-in-score",
+        action="store_true",
+        default=False,
+        help="Include semantic paraphrase matches in the headline score (label: 'score includes unverified semantic leads')",
+    )
+    parser.add_argument(
         "--include-single-window",
         action="store_true",
         default=False,
@@ -181,6 +187,7 @@ def main():
                 "show_names": args.show_names,
                 "word_ranges": sem_plan.word_ranges if (sem_plan and sem_plan.sampling_mode == "section_sampled") else None,
                 "include_single_window": args.include_single_window,
+                "include_semantic_in_score": args.include_semantic_in_score,
                 "min_consecutive_windows": args.min_consecutive_windows,
             },
         )
@@ -189,14 +196,27 @@ def main():
         return
 
     fulltext_cnt = result.metadata.get("fulltexts_fetched", 0)
+    score_label = result.metadata.get("score_label", "exact & near-copy matches only")
+    leads_cnt = result.metadata.get("paraphrase_leads_count", 0)
+    leads_pct = result.metadata.get("paraphrase_leads_percentage", 0.0)
+    strong_cnt = result.metadata.get("strong_leads_count", 0)
+    weak_cnt = result.metadata.get("weak_leads_count", 0)
+
     print("\n" + "=" * 70)
-    print(f"OVERALL SIMILARITY SCORE: {result.similarity_percentage:.1f}%")
+    print(f"OVERALL SIMILARITY SCORE: {result.similarity_percentage:.1f}% ({score_label})")
     print(f"Characters Matched:       {result.matched_chars} / {result.total_clean_chars}")
     print(f"Total Match Spans:        {len(result.spans)}")
     if fulltext_cnt > 0:
         print(f"Full-Texts Fetched:       {fulltext_cnt} open-access paper(s)")
     if result.anomalies:
         print(f"Suspicious Anomalies:     {len(result.anomalies)} (homoglyphs / zero-width)")
+
+    if leads_cnt > 0:
+        print("-" * 70)
+        print(f"Paraphrase leads (review): {leads_cnt} passages, {leads_pct:.1f}% of text")
+        print(f"  {result.metadata.get('explanatory_line', '')}")
+        print(f"  {result.metadata.get('interpretation_guide', '')}")
+        print(f"  Breakdown: {strong_cnt} strong lead(s), {weak_cnt} weak lead(s)")
     print("=" * 70)
 
     # Top Sources Breakdown
@@ -206,9 +226,11 @@ def main():
     else:
         for idx, src in enumerate(result.sources[:5], 1):
             print(f"  {idx}. [{src.origin.upper()}] {src.source_title}")
-            print(f"     Similarity: {src.percentage:.1f}% ({src.matched_chars} chars across {src.match_count} span(s))")
+            print(f"     Headline Similarity: {src.percentage:.1f}% ({src.matched_chars} chars across {src.match_count} span(s))")
+            if src.lead_count > 0:
+                print(f"     Paraphrase leads:     {src.lead_count} lead(s) ({src.strong_lead_count} strong, {src.weak_lead_count} weak, ~{src.lead_percentage:.1f}% of text)")
             if src.source_url:
-                print(f"     URL:        {src.source_url}")
+                print(f"     URL:                 {src.source_url}")
 
     # Top Matched Spans
     print("\nTop Matched Spans:")
@@ -217,10 +239,11 @@ def main():
     else:
         for idx, span in enumerate(result.spans[:5], 1):
             tag = span.type.upper()
+            lead_tag = f" [{span.metadata.get('lead_level', '').upper()}]" if span.metadata.get("lead_level") else ""
             snippet = span.matched_text.strip().replace("\n", " ")
             if len(snippet) > 100:
                 snippet = snippet[:97] + "..."
-            print(f"  {idx}. [{tag} - Score: {span.score:.2f}] from '{span.source_title}'")
+            print(f"  {idx}. [{tag}{lead_tag} - Score: {span.score:.2f}] from '{span.source_title}'")
             print(f"     Offsets: {span.doc_start}:{span.doc_end} ({len(span.matched_text)} chars)")
             print(f"     Text:    \"{snippet}\"")
 

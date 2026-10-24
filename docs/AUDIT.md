@@ -309,3 +309,53 @@ To rigorously test the false-positive behavior of dense semantic matching agains
 4. **Release of v1.0.2**:
    - Version incremented to `1.0.2` across `pyproject.toml`, `src/veritext/__init__.py`, `src/veritext/api/app.py`, `docs/API.md`, and `CITATION.cff`.
    - All 238 fast tests passing; slow MiniLM real-model integration tests verified.
+
+---
+
+## 10. Resolution of the Semantic False-Positive Problem & Release of v1.0.3
+
+In the v1.0.2 benchmark, semantic vector matching flagged 95.00% of Group I documents (original, independently written passages covering identical technical topics), leading to an overall document-level false-positive rate of 27.14% whenever semantic matches were added into the headline similarity percentage. Furthermore, false-positive spans exhibited cosine similarities between 0.75 and 0.89, directly overlapping the true paraphrase range (0.77 to 0.81).
+
+To address this problem with complete academic and engineering integrity, five core tasks were completed:
+
+1. **Verification of Selected Defaults & Startup Settings**:
+   - Verified that effective semantic defaults are $\tau = 0.78$ cosine threshold and $m = 2$ consecutive windows.
+   - Updated `BenchmarkRunner` and `eval` CLI to print the complete effective semantic configuration banner at the start of every benchmark execution.
+   - Results summary JSON (`benchmark_summary.json`) explicitly records `effective_semantic_settings`, recording the formula, threshold, consecutive window count, and anchor grid search criteria.
+
+2. **Headline Score Separation & Paraphrase Review Leads**:
+   - **Headline Similarity Percentage**: Across CLI, UI, JSON, HTML, and PDF exports, the primary headline score is computed **strictly** from exact and near-copy matches. Semantic matches are strictly excluded by default, achieving a **0.00% false-positive rate** across all negative cohorts (including Group I same-topic originals) at standard thresholds ($\ge 10\%$).
+   - **Paraphrase Leads (Review)**: Semantic spans are reported separately as `"Paraphrase leads (review): N passages, M% of text"`.
+   - **Explanatory Line**: Rendered prominently in all report formats:
+     > *"Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source."*
+   - **Opt-in Legacy Mode**: The `--include-semantic-in-score` CLI flag restores additive scoring for users who require backward compatibility, accompanied by an explicit warning label: `"score includes unverified semantic leads"`.
+
+3. **Lexical Anchor Rule & Ordering Metrics Investigation**:
+   - Evaluated whether requiring shared lexical anchors (shared rare content lemmas with corpus $\text{DF} \le 2$, numbers, named entities, and minimum content ratios) could separate real paraphrases from same-topic original writing.
+   - **ROC AUC on Paraphrase vs. Same-Topic Spans (122 candidate spans)**:
+     - **Cosine Alone**: **0.5340** (near-random chance ~0.50; cosine distributions overlap completely).
+     - **Anchor Count Alone**: **0.3622** (inverted discrimination; specialized original technical writing is dense with domain terms).
+     - **Cosine + Anchors Composite**: **0.4939** (no meaningful discrimination).
+   - **Grid Search ($N \in \{1, 2, 3, 4\}$, ratio $\in \{0.1, 0.2, 0.3\}$)**:
+     - At ratio $\in \{0.1, 0.2\}$: Group B recall was 88.00% (93.33% easy, 80.00% hard), but Group I FPR remained 95.00% (did not cut FPR).
+     - At ratio $0.3$: Group B recall collapsed to 72.00% (hard paraphrase recall fell to 40.00%), while Group I FPR remained 90.00%.
+   - **Honest Engineering Determination**: Because not a single parameter setting achieved Group B recall $\ge 70\%$ while cutting Group I FPR by half (to $\le 47.5\%$), the lexical anchor rule is kept **strictly out of the default headline score**. Veritext states plainly that dense embeddings with `all-MiniLM-L6-v2` cannot reliably distinguish same-topic technical prose from true paraphrases. Spans meeting anchor criteria are tagged as `"strong lead"` and others as `"weak lead"` for instructor review only.
+
+4. **Report Integrity & Per-Source Grouping**:
+   - CLI, UI, HTML, and PDF reports now aggregate paraphrase leads per candidate source document.
+   - Displays total leads and strong leads per source, allowing educators to immediately distinguish concentrated hits against a single paper from scattered domain vocabulary across multiple papers.
+   - Added standard interpretation guide across all formats:
+     > *"Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only."*
+
+5. **Fast Offline Unit Tests & Benchmark Verification**:
+   - Added `tests/test_semantic_false_positives.py` containing 4 fast mocked tests verifying:
+     1. Headline score ignores semantic matches by default.
+     2. Opt-in flag includes them with explicit label `"score includes unverified semantic leads"`.
+     3. Anchor rule counts rare lemmas, numbers, and entities correctly and rejects topic-only overlap.
+     4. Benchmark runner prints its effective settings at startup.
+   - All 242 fast tests passing; all 7 slow MiniLM real-model integration tests passing.
+   - Full benchmark re-executed (114 documents in 761.05s).
+
+6. **Release of v1.0.3**:
+   - Version incremented to `1.0.3` across `pyproject.toml`, `src/veritext/__init__.py`, `src/veritext/api/app.py`, `docs/API.md`, and `CITATION.cff`.
+   - Documentation updated in `README.md`, `docs/PROJECT_REPORT.md`, `docs/AUDIT.md`, and `docs/FEATURES.md` with complete benchmark tables, ROC AUC metrics, grid search results, and a "How to read a Veritext report" guide.

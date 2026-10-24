@@ -102,30 +102,53 @@ def export_report_pdf(
     # 2. Score Gauges Panel
     pdf.set_fill_color(248, 250, 252)
     pdf.set_draw_color(226, 232, 240)
-    pdf.rect(10, pdf.get_y(), 190, 36, style="FD")
+    pdf.rect(10, pdf.get_y(), 190, 44, style="FD")
     start_y = pdf.get_y() + 4
 
     # Plagiarism Gauge
     sim_val = report.similarity.similarity_percentage if report.similarity else 0.0
+    sim_meta = report.similarity.metadata if report.similarity else {}
+    score_label = sim_meta.get("score_label", "exact & near-copy only")
+    leads_cnt = sim_meta.get("paraphrase_leads_count", 0)
+    leads_pct = sim_meta.get("paraphrase_leads_percentage", 0.0)
+    strong_cnt = sim_meta.get("strong_leads_count", 0)
+    weak_cnt = sim_meta.get("weak_leads_count", 0)
+
     pdf.set_xy(16, start_y)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(71, 85, 105)
-    pdf.cell(50, 5, "Plagiarism Similarity:", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(50, 5, "Headline Similarity:", new_x=XPos.RIGHT, new_y=YPos.TOP)
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(220, 38, 38)
-    pdf.cell(20, 5, f"{sim_val:.1f}%", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(18, 5, f"{sim_val:.1f}%", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(100, 116, 139)
+    pdf.cell(50, 5, f"({score_label})", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
     # Bar
-    pdf.set_xy(90, start_y + 1)
+    pdf.set_xy(135, start_y + 1)
     pdf.set_fill_color(226, 232, 240)
-    pdf.rect(90, start_y + 1, 95, 4, style="F")
+    pdf.rect(135, start_y + 1, 50, 4, style="F")
     if sim_val > 0:
-        fill_w = min(95.0, (sim_val / 100.0) * 95.0)
+        fill_w = min(50.0, (sim_val / 100.0) * 50.0)
         pdf.set_fill_color(220, 38, 38)
-        pdf.rect(90, start_y + 1, fill_w, 4, style="F")
+        pdf.rect(135, start_y + 1, fill_w, 4, style="F")
+
+    # Paraphrase Leads Line
+    pdf.set_xy(16, start_y + 8)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(71, 85, 105)
+    pdf.cell(50, 5, "Paraphrase Leads (review):", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(180, 83, 9)
+    leads_text = (
+        f"{leads_cnt} passages, {leads_pct:.1f}% of text ({strong_cnt} strong, {weak_cnt} weak)"
+        if leads_cnt > 0 else "0 passages (no semantic leads detected)"
+    )
+    pdf.cell(120, 5, leads_text, new_x=XPos.RIGHT, new_y=YPos.TOP)
 
     # AI Probability Gauge
-    pdf.set_xy(16, start_y + 10)
+    pdf.set_xy(16, start_y + 16)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(71, 85, 105)
     pdf.cell(50, 5, "AI-Text Probability:", new_x=XPos.RIGHT, new_y=YPos.TOP)
@@ -149,20 +172,20 @@ def export_report_pdf(
         pdf.set_text_color(100, 116, 139)
         pdf.cell(55, 5, f"(confidence in this estimate: {ai_conf})", new_x=XPos.RIGHT, new_y=YPos.TOP)
 
-        pdf.set_xy(140, start_y + 11)
+        pdf.set_xy(140, start_y + 17)
         pdf.set_fill_color(226, 232, 240)
-        pdf.rect(140, start_y + 11, 45, 4, style="F")
+        pdf.rect(140, start_y + 17, 45, 4, style="F")
         if ai_val > 0:
             fill_w = min(45.0, (ai_val / 100.0) * 45.0)
             pdf.set_fill_color(124, 58, 237)
-            pdf.rect(140, start_y + 11, fill_w, 4, style="F")
+            pdf.rect(140, start_y + 17, fill_w, 4, style="F")
 
     # Integrity Findings Summary
     high_cnt = sum(sum(1 for f in r.findings if f.severity == "high") for r in report.integrity.results) if report.integrity else 0
     warn_cnt = sum(sum(1 for f in r.findings if f.severity == "warning") for r in report.integrity.results) if report.integrity else 0
     info_cnt = sum(sum(1 for f in r.findings if f.severity == "info") for r in report.integrity.results) if report.integrity else 0
 
-    pdf.set_xy(16, start_y + 20)
+    pdf.set_xy(16, start_y + 26)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(71, 85, 105)
     pdf.cell(50, 5, "Integrity Findings:", new_x=XPos.RIGHT, new_y=YPos.TOP)
@@ -171,7 +194,7 @@ def export_report_pdf(
     findings_line = f"{high_cnt} High Severity   |   {warn_cnt} Warning   |   {info_cnt} Informational"
     pdf.cell(100, 5, findings_line, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    pdf.set_y(start_y + 32)
+    pdf.set_y(start_y + 40)
     pdf.ln(4)
 
     # 3. Limitations Disclaimer Box
@@ -179,9 +202,11 @@ def export_report_pdf(
     pdf.set_draw_color(253, 230, 138)
     disc_text = (
         "LIMITATIONS & RESPONSIBLE USE NOTICE: Verification scores are automated indicators to guide "
-        "human pedagogical review and do not prove misconduct or generative authorship."
+        "human pedagogical review and do not prove misconduct or generative authorship. "
+        "Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source. "
+        "Interpretation Guide: Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only."
     )
-    pdf.set_font("Helvetica", "", 8)
+    pdf.set_font("Helvetica", "", 7.5)
     pdf.set_text_color(146, 64, 14)
     pdf.multi_cell(190, 4, disc_text, border=1, fill=True)
     pdf.ln(5)
@@ -237,26 +262,32 @@ def export_report_pdf(
     # 5. Matched Sources Table
     if report.similarity and report.similarity.sources:
         pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(0, 6, "Matched Sources Summary", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 6, "Matched Sources & Paraphrase Leads", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         # Header
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_fill_color(241, 245, 249)
         pdf.set_text_color(51, 65, 85)
-        pdf.cell(90, 6, "Source Title", border=1, fill=True)
-        pdf.cell(30, 6, "Origin", border=1, fill=True)
-        pdf.cell(35, 6, "Matched Chars", border=1, fill=True)
-        pdf.cell(35, 6, "Overlap %", border=1, fill=True)
+        pdf.cell(75, 6, "Source Title", border=1, fill=True)
+        pdf.cell(25, 6, "Origin", border=1, fill=True)
+        pdf.cell(30, 6, "Headline Overlap", border=1, fill=True)
+        pdf.cell(35, 6, "Paraphrase Leads", border=1, fill=True)
+        pdf.cell(25, 6, "Matched Chars", border=1, fill=True)
         pdf.ln(6)
 
-        pdf.set_font("Helvetica", "", 8)
+        pdf.set_font("Helvetica", "", 7.5)
         pdf.set_text_color(15, 23, 42)
         for s in report.similarity.sources[:8]:
-            title_clean = sanitize_text_for_pdf(s.source_title)[:48]
-            pdf.cell(90, 5.5, title_clean, border=1)
-            pdf.cell(30, 5.5, sanitize_text_for_pdf(s.origin), border=1)
-            pdf.cell(35, 5.5, f"{s.matched_chars} chars", border=1)
-            pdf.cell(35, 5.5, f"{s.percentage:.1f}%", border=1)
+            title_clean = sanitize_text_for_pdf(s.source_title)[:40]
+            leads_str = (
+                f"{s.lead_count} ({s.strong_lead_count} strong)"
+                if getattr(s, "lead_count", 0) > 0 else "0"
+            )
+            pdf.cell(75, 5.5, title_clean, border=1)
+            pdf.cell(25, 5.5, sanitize_text_for_pdf(s.origin), border=1)
+            pdf.cell(30, 5.5, f"{s.percentage:.1f}%", border=1)
+            pdf.cell(35, 5.5, leads_str, border=1)
+            pdf.cell(25, 5.5, f"{s.matched_chars} chars", border=1)
             pdf.ln(5.5)
         pdf.ln(5)
 

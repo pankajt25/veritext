@@ -608,12 +608,8 @@ def main():
         m1, m2, m3 = st.columns(3)
         with m1:
             sim_val = f"{report.similarity.similarity_percentage:.1f}%" if report.similarity else "N/A"
-            src_cnt = len(report.similarity.sources) if report.similarity else 0
-            ft_cnt = report.similarity.metadata.get("fulltexts_fetched", 0) if report.similarity else 0
-            sub_label = f"{src_cnt} matched source(s)"
-            if ft_cnt > 0:
-                sub_label += f" ({ft_cnt} full-text fetched)"
-            st.metric("Similarity Score", sim_val, sub_label)
+            score_label = report.similarity.metadata.get("score_label", "exact & near-copy only") if report.similarity else "Engine not executed"
+            st.metric("Headline Similarity", sim_val, score_label)
 
         with m2:
             if not report.ai_detect:
@@ -633,6 +629,27 @@ def main():
             info_cnt = sum(sum(1 for f in r.findings if f.severity == "info") for r in report.integrity.results) if report.integrity else 0
             total_integ = high_cnt + warn_cnt + info_cnt
             st.metric("Integrity Findings", total_integ, f"{high_cnt} High, {warn_cnt} Warn, {info_cnt} Info")
+
+        if report.similarity:
+            leads_cnt = report.similarity.metadata.get("paraphrase_leads_count", 0)
+            leads_pct = report.similarity.metadata.get("paraphrase_leads_percentage", 0.0)
+            strong_cnt = report.similarity.metadata.get("strong_leads_count", 0)
+            weak_cnt = report.similarity.metadata.get("weak_leads_count", 0)
+            if leads_cnt > 0:
+                expl = report.similarity.metadata.get(
+                    "explanatory_line",
+                    "Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source.",
+                )
+                guide = report.similarity.metadata.get(
+                    "interpretation_guide",
+                    "Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only",
+                )
+                st.info(
+                    f"**Paraphrase leads (review):** {leads_cnt} passages, {leads_pct:.1f}% of text "
+                    f"({strong_cnt} strong lead(s), {weak_cnt} weak lead(s))\n\n"
+                    f"*{expl}*\n\n"
+                    f"**Guide:** *{guide}*"
+                )
 
         st.markdown("---")
         st.markdown("#### Executive Overview")
@@ -866,14 +883,22 @@ def main():
         if not report.similarity or not report.similarity.sources:
             st.info("No matching plagiarism sources detected in local reference library or online sources.")
         else:
+            st.caption("Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only")
+            st.caption("Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source.")
             for s in report.similarity.sources:
-                with st.expander(f"{s.source_title} - {s.percentage:.1f}% ({s.origin.upper()})"):
+                lead_suffix = f" | {s.lead_count} lead(s)" if getattr(s, "lead_count", 0) > 0 else ""
+                with st.expander(f"{s.source_title} - {s.percentage:.1f}% headline overlap{lead_suffix} ({s.origin.upper()})"):
                     col_info, col_ex = st.columns([3, 1])
                     with col_info:
                         st.write(f"**Source Origin:** `{s.origin}`")
                         if s.source_url:
                             st.write(f"**URL:** [{s.source_url}]({s.source_url})")
-                        st.write(f"**Matched Characters:** {s.matched_chars} chars across {s.match_count} distinct span(s)")
+                        st.write(f"**Headline Matched Characters:** {s.matched_chars} chars across {s.match_count} distinct span(s)")
+                        if getattr(s, "lead_count", 0) > 0:
+                            st.write(
+                                f"**Paraphrase Leads:** {s.lead_count} lead(s) "
+                                f"({s.strong_lead_count} strong, {s.weak_lead_count} weak, ~{s.lead_percentage:.1f}% of text)"
+                            )
                     with col_ex:
                         if st.button(f"🚫 Exclude Source", key=f"btn_ex_src_{s.source_id}"):
                             st.session_state["excluded_sources"].add(s.source_id)

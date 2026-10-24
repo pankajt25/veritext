@@ -48,9 +48,14 @@ def compute_similarity_score(
     top_n_spans: int = 30,
     anomalies: Optional[List[Dict[str, Any]]] = None,
     include_single_window_semantic: bool = False,
+    include_semantic_in_score: bool = False,
 ) -> SimilarityResult:
     """
     Computes hybrid similarity score by merging character match intervals.
+
+    By default, the headline similarity percentage is computed ONLY from exact
+    and near-copy matches. Semantic matches are never added to it by default.
+    They are tracked separately as paraphrase review leads.
 
     Args:
         clean_text: Cleaned text string of the document.
@@ -62,7 +67,9 @@ def compute_similarity_score(
         top_n_spans: Maximum number of top spans to retain in the report.
         anomalies: List of text anomalies found during normalization.
         include_single_window_semantic: Include isolated single-window semantic matches
-            in headline similarity score (default: False, review only).
+            when include_semantic_in_score is True.
+        include_semantic_in_score: Opt-in flag to include semantic paraphrase matches
+            in the headline score (default: False, exact & near-copy only).
 
     Returns:
         Complete SimilarityResult instance.
@@ -70,22 +77,51 @@ def compute_similarity_score(
     sources_dict = sources_map or {}
     total_clean_chars = max(1, len(clean_text))
 
-    # 1. Filter counted spans
+    # 1. Filter counted spans and separate semantic leads
     counted_spans: List[MatchSpan] = []
+    semantic_leads: List[MatchSpan] = []
+
     for span in spans:
+        is_exact_or_near = span.type in ("exact", "near_copy")
+        if not is_exact_or_near:
+            semantic_leads.append(span)
+
         span_len = span.doc_end - span.doc_start
         if exclude_small_matches and span_len < min_match_chars:
             continue
-        # Exclude single-window semantic matches from headline percentage unless explicitly enabled
-        if span.metadata.get("is_single_window", False) and not include_single_window_semantic:
-            continue
+
+        if not is_exact_or_near:
+            # Semantic matches are never added to headline score by default
+            if not include_semantic_in_score:
+                continue
+            # When user opted into including semantic matches, respect single-window rule
+            if span.metadata.get("is_single_window", False) and not include_single_window_semantic:
+                continue
+
         counted_spans.append(span)
 
-    # 2. Compute overall document character coverage
+    # 2. Compute overall document character coverage for headline score
     doc_intervals = [(s.doc_start, s.doc_end) for s in counted_spans]
     total_matched_chars = calculate_covered_characters(doc_intervals)
     overall_percentage = min(
         100.0, (total_matched_chars / total_clean_chars) * 100.0
+    )
+
+    # Calculate separate paraphrase leads metrics
+    sem_intervals = [(s.doc_start, s.doc_end) for s in semantic_leads]
+    sem_matched_chars = calculate_covered_characters(sem_intervals)
+    sem_percentage = min(100.0, (sem_matched_chars / total_clean_chars) * 100.0)
+    sem_leads_count = len(semantic_leads)
+    strong_leads_cnt = sum(
+        1 for s in semantic_leads
+        if s.metadata.get("is_strong_lead", False) or s.metadata.get("lead_level") == "strong lead"
+    )
+    weak_leads_cnt = sem_leads_count - strong_leads_cnt
+
+    score_label = (
+        "score includes unverified semantic leads"
+        if include_semantic_in_score
+        else "exact & near-copy matches only"
     )
 
     # 3. Compute per-source breakdown
@@ -111,6 +147,18 @@ def compute_similarity_score(
             100.0, (src_matched_chars / total_clean_chars) * 100.0
         )
 
+        # Source-specific leads breakdown
+        s_sem_spans = [sp for sp in s_all_spans if sp.type not in ("exact", "near_copy")]
+        s_lead_count = len(s_sem_spans)
+        s_strong_count = sum(
+            1 for sp in s_sem_spans
+            if sp.metadata.get("is_strong_lead", False) or sp.metadata.get("lead_level") == "strong lead"
+        )
+        s_weak_count = s_lead_count - s_strong_count
+        s_lead_intervals = [(sp.doc_start, sp.doc_end) for sp in s_sem_spans]
+        s_lead_chars = calculate_covered_characters(s_lead_intervals)
+        s_lead_pct = min(100.0, (s_lead_chars / total_clean_chars) * 100.0)
+
         source_matches.append(
             SourceMatch(
                 source_id=s_id,
@@ -121,16 +169,25 @@ def compute_similarity_score(
                 percentage=src_pct,
                 match_count=len(s_all_spans),
                 spans=s_all_spans,
+                lead_count=s_lead_count,
+                strong_lead_count=s_strong_count,
+                weak_lead_count=s_weak_count,
+                lead_percentage=s_lead_pct,
             )
         )
 
-    # Sort sources by percentage descending
-    source_matches.sort(key=lambda sm: sm.percentage, reverse=True)
+    # Sort sources by headline percentage descending, then by lead count
+    source_matches.sort(key=lambda sm: (sm.percentage, sm.lead_count), reverse=True)
 
     # 4. Rank top match spans (counted spans first, then review spans)
     ranked_spans = sorted(
         spans,
-        key=lambda s: (not s.metadata.get("is_single_window", False), s.score, (s.doc_end - s.doc_start)),
+        key=lambda s: (
+            s.type in ("exact", "near_copy"),
+            not s.metadata.get("is_single_window", False),
+            s.score,
+            (s.doc_end - s.doc_start),
+        ),
         reverse=True,
     )
 
@@ -150,6 +207,19 @@ def compute_similarity_score(
             "single_window_review_count": sum(1 for s in spans if s.metadata.get("is_single_window", False)),
             "total_matches_count": len(counted_spans),
             "include_single_window_semantic": include_single_window_semantic,
+            "include_semantic_in_score": include_semantic_in_score,
+            "score_label": score_label,
+            "paraphrase_leads_count": sem_leads_count,
+            "paraphrase_leads_percentage": round(sem_percentage, 2),
+            "strong_leads_count": strong_leads_cnt,
+            "weak_leads_count": weak_leads_cnt,
+            "explanatory_line": (
+                "Similar meaning is not proof of copying; passages on the same topic often match. "
+                "Check the linked source."
+            ),
+            "interpretation_guide": (
+                "Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only"
+            ),
             "all_original_spans": spans,
         },
     )

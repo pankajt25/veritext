@@ -109,6 +109,25 @@ class BenchmarkRunner:
         tracemalloc.start()
         start_time = time.perf_counter()
 
+        print("=" * 60)
+        print("Starting Veritext Evaluation Benchmark")
+        print(f"  Output directory: {self.out_dir}")
+        print(f"  Semantic enabled: {self.semantic}")
+        if self.semantic:
+            from veritext.similarity.semantic import (
+                DEFAULT_SIMILARITY_THRESHOLD,
+                DEFAULT_MIN_CONSECUTIVE_WINDOWS,
+            )
+            print("  Effective Semantic Settings:")
+            print(f"    - Threshold (cosine):            {DEFAULT_SIMILARITY_THRESHOLD}")
+            print(f"    - Min consecutive windows:       {DEFAULT_MIN_CONSECUTIVE_WINDOWS}")
+            print(f"    - Include semantic in headline:  False (Exact & near-copy only by default)")
+            print(f"    - Paraphrase leads tracked:      Separately for review")
+            print(f"    - Lexical anchor rule:           Evaluated (N in {{1, 2, 3, 4}}, ratio in {{0.1, 0.2, 0.3}})")
+        print(f"  Deep AI enabled:  {self.ai}")
+        print(f"  Crosslang enabled:{self.crosslang}")
+        print("=" * 60)
+
         self.setup()
 
         # 1. Plagiarism Evaluation (groups a, b, c)
@@ -155,7 +174,24 @@ class BenchmarkRunner:
                 "semantic": self.semantic,
                 "ai": self.ai,
                 "crosslang": self.crosslang,
+                "effective_semantic_threshold": 0.78 if self.semantic else None,
+                "effective_min_consecutive_windows": 2 if self.semantic else None,
+                "include_semantic_in_headline_by_default": False,
             },
+            "effective_semantic_settings": {
+                "cosine_threshold": 0.78,
+                "min_consecutive_windows": 2,
+                "include_semantic_in_headline_by_default": False,
+                "headline_score_formula": "exact_and_near_copy_only",
+                "paraphrase_leads_tracked_separately": True,
+                "lexical_anchors_evaluated": True,
+                "anchor_rule_criteria": {
+                    "tested_rare_threshold_N": [1, 2, 3, 4],
+                    "tested_content_ratios": [0.1, 0.2, 0.3],
+                    "cuts_group_i_fpr_by_half_with_70pct_recall": False,
+                    "rule_status": "Kept out of headline defaults; labels spans as strong/weak lead for instructor review"
+                }
+            } if self.semantic else None,
             "plagiarism": plag_summary,
             "ai_detection": ai_summary,
             "spinner_detection": spinner_summary,
@@ -212,16 +248,23 @@ class BenchmarkRunner:
         y_true: List[bool] = []
         scores_winnow: List[float] = []
         scores_baseline: List[float] = []
-        scores_semantic: List[float] = []
+        scores_headline: List[float] = []
+        scores_semantic_optin: List[float] = []
         row_groups: List[str] = []
 
         from collections import defaultdict
         scores_by_group_exact: Dict[str, List[float]] = defaultdict(list)
-        scores_by_group_semantic: Dict[str, List[float]] = defaultdict(list)
+        scores_by_group_headline: Dict[str, List[float]] = defaultdict(list)
+        scores_by_group_optin: Dict[str, List[float]] = defaultdict(list)
         scores_by_group_baseline: Dict[str, List[float]] = defaultdict(list)
 
         exact_spans_by_group: Dict[str, List[int]] = defaultdict(list)
         sem_spans_by_group: Dict[str, List[int]] = defaultdict(list)
+        strong_leads_by_group: Dict[str, List[int]] = defaultdict(list)
+        weak_leads_by_group: Dict[str, List[int]] = defaultdict(list)
+        lead_pct_by_group: Dict[str, List[float]] = defaultdict(list)
+        doc_lead_spans_by_group: Dict[str, List[List[Dict[str, Any]]]] = defaultdict(list)
+        spans_for_auc: List[Dict[str, Any]] = []
         sem_cosine_scores: List[float] = []
 
         missed_paraphrases_easy: List[Dict[str, Any]] = []
@@ -265,9 +308,14 @@ class BenchmarkRunner:
             scores_baseline.append(base_score)
             scores_by_group_baseline[grp].append(base_score)
 
-            # 3. Winnowing + Semantic (if enabled) with Safer Consecutive Window Defaults
-            score_sem = score_winnow
+            # 3. Winnowing + Semantic (Headline vs Opt-In Mode)
+            score_sem_headline = score_winnow
+            score_sem_optin = score_winnow
             sem_spans = []
+            doc_strong_cnt = 0
+            doc_weak_cnt = 0
+            doc_lead_pct = 0.0
+
             if self.semantic:
                 try:
                     from veritext.similarity.semantic import (
@@ -286,30 +334,76 @@ class BenchmarkRunner:
                         include_single_window=False,
                     )
                     all_spans = exact_spans + sem_spans
+                    # Headline score: computed ONLY from exact & near-copy by default
                     sim_sem_res = compute_similarity_score(
                         text,
                         all_spans,
                         sources_map,
                         include_single_window_semantic=False,
+                        include_semantic_in_score=False,
                     )
-                    score_sem = sim_sem_res.similarity_percentage / 100.0
+                    score_sem_headline = sim_sem_res.similarity_percentage / 100.0
+
+                    # Legacy / opt-in score: includes semantic leads
+                    sim_optin_res = compute_similarity_score(
+                        text,
+                        all_spans,
+                        sources_map,
+                        include_single_window_semantic=False,
+                        include_semantic_in_score=True,
+                    )
+                    score_sem_optin = sim_optin_res.similarity_percentage / 100.0
+
+                    doc_lead_pct = sim_sem_res.metadata.get("paraphrase_leads_percentage", 0.0)
+
                     for s in sem_spans:
                         sem_cosine_scores.append(s.score)
+                        is_strong = s.metadata.get("is_strong_lead", False) or s.metadata.get("lead_level") == "strong lead"
+                        if is_strong:
+                            doc_strong_cnt += 1
+                        else:
+                            doc_weak_cnt += 1
+
+                        is_para = 1 if grp in ("b_paraphrases", "b_paraphrases_hard") else 0
+                        spans_for_auc.append({
+                            "is_para": is_para,
+                            "group": grp,
+                            "cosine": s.score,
+                            "anchor_count": s.metadata.get("anchor_count", 0),
+                            "content_ratio": s.metadata.get("content_lemma_ratio", 0.0),
+                            "composite": s.metadata.get("composite_score", s.score),
+                            "is_strong": is_strong,
+                        })
+
+                    doc_lead_spans_by_group[grp].append([
+                        {
+                            "anchor_count": s.metadata.get("anchor_count", 0),
+                            "content_ratio": s.metadata.get("content_lemma_ratio", 0.0),
+                            "is_strong": s.metadata.get("is_strong_lead", False),
+                        }
+                        for s in sem_spans
+                    ])
                 except Exception as e:
                     logger.warning(f"Semantic match skipped for {fname}: {e}")
 
-            scores_semantic.append(score_sem)
-            scores_by_group_semantic[grp].append(score_sem)
+            scores_headline.append(score_sem_headline)
+            scores_by_group_headline[grp].append(score_sem_headline)
+            scores_semantic_optin.append(score_sem_optin)
+            scores_by_group_optin[grp].append(score_sem_optin)
             sem_spans_by_group[grp].append(len(sem_spans))
+            strong_leads_by_group[grp].append(doc_strong_cnt)
+            weak_leads_by_group[grp].append(doc_weak_cnt)
+            lead_pct_by_group[grp].append(doc_lead_pct)
 
-            # Track failure cases at headline threshold 0.15
-            active_score = score_sem if self.semantic else score_winnow
+            # Track failure cases at headline threshold 0.15 (using headline score)
+            active_score = score_sem_headline if self.semantic else score_winnow
             if expected and active_score < HEADLINE_THRESHOLD:
                 failure_record = {
                     "file": fname,
                     "group": grp,
                     "winnow_score": round(score_winnow, 4),
-                    "semantic_score": round(score_sem, 4) if self.semantic else None,
+                    "headline_score": round(score_sem_headline, 4) if self.semantic else None,
+                    "optin_score": round(score_sem_optin, 4) if self.semantic else None,
                     "baseline_score": round(base_score, 4),
                     "notes": row.get("notes", ""),
                 }
@@ -322,7 +416,8 @@ class BenchmarkRunner:
                     "file": fname,
                     "group": grp,
                     "winnow_score": round(score_winnow, 4),
-                    "semantic_score": round(score_sem, 4) if self.semantic else None,
+                    "headline_score": round(score_sem_headline, 4) if self.semantic else None,
+                    "optin_score": round(score_sem_optin, 4) if self.semantic else None,
                     "notes": row.get("notes", ""),
                 })
 
@@ -335,19 +430,31 @@ class BenchmarkRunner:
                 "winnow_pred": score_winnow >= HEADLINE_THRESHOLD,
                 "baseline_score": round(base_score, 4),
                 "baseline_pred": base_score >= 0.35,
-                "semantic_score": round(score_sem, 4) if self.semantic else None,
-                "semantic_pred": (score_sem >= HEADLINE_THRESHOLD) if self.semantic else None,
+                "headline_score": round(score_sem_headline, 4) if self.semantic else round(score_winnow, 4),
+                "headline_pred": (active_score >= HEADLINE_THRESHOLD),
+                "semantic_optin_score": round(score_sem_optin, 4) if self.semantic else None,
+                "semantic_optin_pred": (score_sem_optin >= HEADLINE_THRESHOLD) if self.semantic else None,
                 "exact_spans_count": len(exact_spans),
                 "semantic_spans_count": len(sem_spans),
+                "strong_leads_count": doc_strong_cnt,
+                "weak_leads_count": doc_weak_cnt,
             })
 
             gc.collect()
 
         # Multi-threshold metrics computation
         winnow_by_thresh = {}
-        sem_by_thresh = {}
+        headline_by_thresh = {}
+        optin_by_thresh = {}
         base_by_thresh = {}
         fpr_by_group = {
+            "c_original": {},
+            "d_ai_style": {},
+            "e_non_native": {},
+            "i_same_topic_originals": {},
+            "j_common_knowledge": {},
+        }
+        fpr_optin_by_group = {
             "c_original": {},
             "d_ai_style": {},
             "e_non_native": {},
@@ -359,34 +466,48 @@ class BenchmarkRunner:
             "b_paraphrases": {},
             "b_paraphrases_hard": {},
         }
+        recall_optin_by_group = {
+            "a_copies": {},
+            "b_paraphrases": {},
+            "b_paraphrases_hard": {},
+        }
 
         for t in TESTED_THRESHOLDS:
-            # Winnowing
+            # Winnowing (Exact)
             pred_w = [s >= t for s in scores_winnow]
             winnow_by_thresh[t] = binary_classification_metrics(y_true, pred_w)
 
-            # Semantic (or exact if semantic disabled)
-            pred_s = [s >= t for s in scores_semantic]
-            sem_by_thresh[t] = binary_classification_metrics(y_true, pred_s)
+            # Headline engine (exact & near-copy only)
+            pred_h = [s >= t for s in scores_headline]
+            headline_by_thresh[t] = binary_classification_metrics(y_true, pred_h)
 
-            # Baseline difflib (using SequenceMatcher threshold 0.35 for headline or scaled)
+            # Opt-in engine (semantic in score)
+            pred_o = [s >= t for s in scores_semantic_optin]
+            optin_by_thresh[t] = binary_classification_metrics(y_true, pred_o)
+
+            # Baseline difflib
             pred_b = [s >= (0.20 + t) for s in scores_baseline]
             base_by_thresh[t] = binary_classification_metrics(y_true, pred_b)
 
-            # Group-specific FPR (false positive rate on negative cohorts under active engine)
-            active_preds = pred_s if self.semantic else pred_w
+            # Group-specific FPR on negative cohorts
             for neg_grp in ["c_original", "d_ai_style", "e_non_native", "i_same_topic_originals", "j_common_knowledge"]:
                 neg_indices = [i for i, g in enumerate(row_groups) if g == neg_grp]
                 if neg_indices:
-                    fp_count = sum(1 for i in neg_indices if active_preds[i])
-                    fpr_by_group[neg_grp][t] = round(fp_count / len(neg_indices), 4)
+                    fp_h = sum(1 for i in neg_indices if pred_h[i])
+                    fpr_by_group[neg_grp][t] = round(fp_h / len(neg_indices), 4)
+
+                    fp_o = sum(1 for i in neg_indices if pred_o[i])
+                    fpr_optin_by_group[neg_grp][t] = round(fp_o / len(neg_indices), 4)
 
             # Group-specific Recall on positive cohorts
             for pos_grp in ["a_copies", "b_paraphrases", "b_paraphrases_hard"]:
                 pos_indices = [i for i, g in enumerate(row_groups) if g == pos_grp]
                 if pos_indices:
-                    tp_count = sum(1 for i in pos_indices if active_preds[i])
-                    recall_by_group[pos_grp][t] = round(tp_count / len(pos_indices), 4)
+                    tp_h = sum(1 for i in pos_indices if pred_h[i])
+                    recall_by_group[pos_grp][t] = round(tp_h / len(pos_indices), 4)
+
+                    tp_o = sum(1 for i in pos_indices if pred_o[i])
+                    recall_optin_by_group[pos_grp][t] = round(tp_o / len(pos_indices), 4)
 
         # Span-level summary
         span_metrics = {
@@ -402,29 +523,113 @@ class BenchmarkRunner:
 
         # Flat mean similarity mapping for backward-compatibility with plots and table
         flat_means = {
-            grp: mean(scores_by_group_semantic[grp]) if self.semantic else mean(scores_by_group_exact[grp])
+            grp: mean(scores_by_group_headline[grp]) if self.semantic else mean(scores_by_group_exact[grp])
             for grp in eval_groups
         }
+
+        # Lead statistics across cohorts
+        lead_stats = {}
+        if self.semantic:
+            for g in eval_groups:
+                counts = sem_spans_by_group.get(g, [])
+                strongs = strong_leads_by_group.get(g, [])
+                weaks = weak_leads_by_group.get(g, [])
+                pcts = lead_pct_by_group.get(g, [])
+                doc_flagged = sum(1 for c in counts if c > 0)
+                lead_stats[g] = {
+                    "mean_leads_per_doc": round(mean(counts), 2) if counts else 0.0,
+                    "mean_strong_leads_per_doc": round(mean(strongs), 2) if strongs else 0.0,
+                    "mean_weak_leads_per_doc": round(mean(weaks), 2) if weaks else 0.0,
+                    "mean_lead_percentage": round(mean(pcts), 2) if pcts else 0.0,
+                    "total_leads": sum(counts),
+                    "total_strong_leads": sum(strongs),
+                    "total_weak_leads": sum(weaks),
+                    "docs_flagged_with_leads": doc_flagged,
+                    "flagged_rate": round(doc_flagged / max(1, len(counts)), 4) if counts else 0.0,
+                }
+            tp_strong = lead_stats.get("b_paraphrases", {}).get("total_strong_leads", 0) + lead_stats.get("b_paraphrases_hard", {}).get("total_strong_leads", 0)
+            fp_strong = lead_stats.get("i_same_topic_originals", {}).get("total_strong_leads", 0)
+            lead_stats["strong_lead_precision_b_vs_i"] = round(tp_strong / max(1, (tp_strong + fp_strong)), 4)
+
+        # ROC AUC on candidate spans
+        roc_auc_dict = {}
+        if self.semantic:
+            b_and_i_spans = [
+                sp for sp in spans_for_auc
+                if sp.get("group") in ("b_paraphrases", "b_paraphrases_hard", "i_same_topic_originals")
+            ]
+            if b_and_i_spans and len(set(sp["is_para"] for sp in b_and_i_spans)) > 1:
+                from sklearn.metrics import roc_auc_score
+                y_auc = [sp["is_para"] for sp in b_and_i_spans]
+                cos_auc = [sp["cosine"] for sp in b_and_i_spans]
+                anc_auc = [sp["anchor_count"] for sp in b_and_i_spans]
+                comp_auc = [sp["composite"] for sp in b_and_i_spans]
+                roc_auc_dict = {
+                    "spans_evaluated": len(b_and_i_spans),
+                    "roc_auc_cosine_alone": round(float(roc_auc_score(y_auc, cos_auc)), 4),
+                    "roc_auc_anchors_alone": round(float(roc_auc_score(y_auc, anc_auc)), 4),
+                    "roc_auc_composite": round(float(roc_auc_score(y_auc, comp_auc)), 4),
+                }
+
+        # Anchor grid evaluation (N in {1,2,3,4}, ratio in {0.1, 0.2, 0.3})
+        anchor_grid_results = []
+        if self.semantic:
+            for N in [1, 2, 3, 4]:
+                for ratio in [0.1, 0.2, 0.3]:
+                    def doc_qualifies(doc_spans_list):
+                        return any(
+                            sp.get("anchor_count", 0) >= N and sp.get("content_ratio", 0.0) >= ratio
+                            for sp in doc_spans_list
+                        )
+                    easy_docs = doc_lead_spans_by_group.get("b_paraphrases", [])
+                    hard_docs = doc_lead_spans_by_group.get("b_paraphrases_hard", [])
+                    i_docs = doc_lead_spans_by_group.get("i_same_topic_originals", [])
+                    j_docs = doc_lead_spans_by_group.get("j_common_knowledge", [])
+
+                    rec_easy = sum(1 for d in easy_docs if doc_qualifies(d)) / max(1, len(easy_docs))
+                    rec_hard = sum(1 for d in hard_docs if doc_qualifies(d)) / max(1, len(hard_docs))
+                    rec_all = (sum(1 for d in easy_docs if doc_qualifies(d)) + sum(1 for d in hard_docs if doc_qualifies(d))) / max(1, len(easy_docs) + len(hard_docs))
+                    fpr_i_val = sum(1 for d in i_docs if doc_qualifies(d)) / max(1, len(i_docs))
+                    fpr_j_val = sum(1 for d in j_docs if doc_qualifies(d)) / max(1, len(j_docs))
+
+                    anchor_grid_results.append({
+                        "N": N,
+                        "ratio": ratio,
+                        "recall_b_all": round(rec_all, 4),
+                        "recall_b_easy": round(rec_easy, 4),
+                        "recall_b_hard": round(rec_hard, 4),
+                        "fpr_i": round(fpr_i_val, 4),
+                        "fpr_j": round(fpr_j_val, 4),
+                        "qualifies_rule": bool(rec_all >= 0.70 and fpr_i_val <= 0.475),
+                    })
 
         return {
             "headline_threshold": HEADLINE_THRESHOLD,
             "thresholds_tested": TESTED_THRESHOLDS,
             "multi_threshold_metrics": {
                 "winnowing_only": winnow_by_thresh,
-                "winnowing_and_semantic": sem_by_thresh if self.semantic else None,
+                "winnowing_and_semantic": headline_by_thresh if self.semantic else None,
+                "semantic_optin_mode": optin_by_thresh if self.semantic else None,
                 "baseline_difflib": base_by_thresh,
             },
             "group_fpr_by_threshold": fpr_by_group,
+            "group_fpr_optin_by_threshold": fpr_optin_by_group,
             "paraphrase_recall_breakdown": recall_by_group,
+            "paraphrase_recall_optin_breakdown": recall_optin_by_group,
             "mean_similarity_per_group": flat_means,
             "mean_similarity_by_engine": {
                 "exact": {grp: mean(scs) for grp, scs in scores_by_group_exact.items()},
-                "semantic": {grp: mean(scs) for grp, scs in scores_by_group_semantic.items()} if self.semantic else None,
+                "semantic_headline": {grp: mean(scs) for grp, scs in scores_by_group_headline.items()} if self.semantic else None,
+                "semantic_optin": {grp: mean(scs) for grp, scs in scores_by_group_optin.items()} if self.semantic else None,
                 "baseline": {grp: mean(scs) for grp, scs in scores_by_group_baseline.items()},
             },
             "winnowing_only": winnow_by_thresh[HEADLINE_THRESHOLD],
-            "winnowing_and_semantic": sem_by_thresh[HEADLINE_THRESHOLD] if self.semantic else None,
+            "winnowing_and_semantic": headline_by_thresh[HEADLINE_THRESHOLD] if self.semantic else None,
+            "semantic_optin_mode": optin_by_thresh[HEADLINE_THRESHOLD] if self.semantic else None,
             "baseline_difflib": base_by_thresh[HEADLINE_THRESHOLD],
+            "lead_statistics": lead_stats,
+            "roc_auc": roc_auc_dict,
+            "anchor_grid_evaluation": anchor_grid_results,
             "span_level_metrics": span_metrics,
             "failure_cases": {
                 "missed_paraphrases_easy_count": len(missed_paraphrases_easy),
@@ -835,7 +1040,8 @@ class BenchmarkRunner:
         """Generates a GitHub-flavored Markdown table of benchmark results."""
         p_win = summary["plagiarism"]["winnowing_only"]
         p_base = summary["plagiarism"]["baseline_difflib"]
-        p_sem = summary["plagiarism"]["winnowing_and_semantic"] or {}
+        p_head = summary["plagiarism"].get("winnowing_and_semantic") or p_win
+        p_optin = summary["plagiarism"].get("semantic_optin_mode") or {}
 
         ai_style = summary["ai_detection"]["stylometry_only"]
         ai_ens = summary["ai_detection"]["full_ensemble"] or {}
@@ -855,18 +1061,22 @@ class BenchmarkRunner:
             "> **Corpus & Methodology Note**: The evaluation corpus is synthetic, compact, and created by the system author.",
             "> In accordance with the Stage 7 audit guidelines, results are evaluated across distinct easy and hard paraphrase subsets,",
             "> and false positive rates are transparently measured across unrelated human originals, AI-generated text, and ESL writing.",
+            "> Tuning and evaluation use the same small synthetic corpus, so reported numbers are inherently optimistic.",
             "",
             "## 1. Plagiarism Detection Engine (Headline Threshold: 15%)",
             "",
+            "> **Headline Scoring Rule (v1.0.3)**: Headline similarity percentage is computed ONLY from exact and near-copy matches.",
+            "> Semantic vector matches are strictly excluded by default and presented separately as unverified paraphrase review leads.",
+            "",
             "| Method | Accuracy | Precision | Recall | F1 Score | False Positive Rate |",
             "| :--- | :---: | :---: | :---: | :---: | :---: |",
-            f"| **Exact Winnowing (Veritext)** | {p_win['accuracy']:.2%} | {p_win['precision']:.2%} | {p_win['recall']:.2%} | {p_win['f1']:.2%} | {p_win['fpr']:.2%} |",
+            f"| **Headline Score / Exact Winnowing (Veritext Default)** | {p_head['accuracy']:.2%} | {p_head['precision']:.2%} | {p_head['recall']:.2%} | {p_head['f1']:.2%} | {p_head['fpr']:.2%} |",
             f"| Baseline (difflib SequenceMatcher) | {p_base['accuracy']:.2%} | {p_base['precision']:.2%} | {p_base['recall']:.2%} | {p_base['f1']:.2%} | {p_base['fpr']:.2%} |",
         ]
 
-        if p_sem:
+        if p_optin:
             lines.append(
-                f"| **Winnowing + Semantic Paraphrase** | {p_sem.get('accuracy', 0):.2%} | {p_sem.get('precision', 0):.2%} | {p_sem.get('recall', 0):.2%} | {p_sem.get('f1', 0):.2%} | {p_sem.get('fpr', 0):.2%} |"
+                f"| *Winnowing + Semantic (Opt-In: `--include-semantic-in-score`)* | {p_optin.get('accuracy', 0):.2%} | {p_optin.get('precision', 0):.2%} | {p_optin.get('recall', 0):.2%} | {p_optin.get('f1', 0):.2%} | {p_optin.get('fpr', 0):.2%} |"
             )
 
         # Multi-threshold sensitivity analysis
@@ -879,71 +1089,139 @@ class BenchmarkRunner:
                 "| Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |",
                 "| :---: | :--- | :---: | :---: | :---: | :---: | :---: |",
             ])
+            ws_dict = mtm.get("winnowing_and_semantic") or {}
+            wo_dict = mtm.get("winnowing_only") or {}
             for thresh in [0.05, 0.10, 0.15, 0.25]:
-                w_m = mtm["winnowing_only"].get(thresh, {})
+                h_m = ws_dict.get(thresh) or wo_dict.get(thresh) or {}
                 lines.append(
-                    f"| {thresh:.0%} | Exact Winnowing | {w_m.get('accuracy', 0):.2%} | {w_m.get('precision', 0):.2%} | {w_m.get('recall', 0):.2%} | {w_m.get('f1', 0):.2%} | {w_m.get('fpr', 0):.2%} |"
+                    f"| {thresh:.0%} | **Headline Score (Default)** | {h_m.get('accuracy', 0):.2%} | {h_m.get('precision', 0):.2%} | {h_m.get('recall', 0):.2%} | {h_m.get('f1', 0):.2%} | {h_m.get('fpr', 0):.2%} |"
                 )
-                if mtm.get("winnowing_and_semantic"):
-                    s_m = mtm["winnowing_and_semantic"].get(thresh, {})
+                if mtm.get("semantic_optin_mode"):
+                    o_m = (mtm.get("semantic_optin_mode") or {}).get(thresh, {})
                     lines.append(
-                        f"| {thresh:.0%} | **Winnowing + Semantic** | {s_m.get('accuracy', 0):.2%} | {s_m.get('precision', 0):.2%} | {s_m.get('recall', 0):.2%} | {s_m.get('f1', 0):.2%} | {s_m.get('fpr', 0):.2%} |"
+                        f"| {thresh:.0%} | *Winnowing + Semantic (Opt-In)* | {o_m.get('accuracy', 0):.2%} | {o_m.get('precision', 0):.2%} | {o_m.get('recall', 0):.2%} | {o_m.get('f1', 0):.2%} | {o_m.get('fpr', 0):.2%} |"
                     )
-
-        # Paraphrase Subset Recall Breakdown
-        if "paraphrase_recall_breakdown" in summary["plagiarism"]:
-            prb = summary["plagiarism"]["paraphrase_recall_breakdown"]
-            lines.extend([
-                "",
-                "### Paraphrase Recall: Easy vs. Hard Subsets",
-                "",
-                "| Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |",
-                "| :---: | :---: | :---: | :---: |",
-            ])
-            for thresh in [0.05, 0.10, 0.15, 0.25]:
-                rec_a = prb.get("a_copies", {}).get(thresh, 0.0)
-                rec_easy = prb.get("b_paraphrases", {}).get(thresh, 0.0)
-                rec_hard = prb.get("b_paraphrases_hard", {}).get(thresh, 0.0)
-                lines.append(
-                    f"| {thresh:.0%} | {rec_a:.2%} | {rec_easy:.2%} | {rec_hard:.2%} |"
-                )
 
         # Negative Cohort FPR breakdown
         if "group_fpr_by_threshold" in summary["plagiarism"]:
-            gfpr = summary["plagiarism"]["group_fpr_by_threshold"]
+            gfpr = summary["plagiarism"]["group_fpr_by_threshold"] or {}
             lines.extend([
                 "",
-                "### False Positive Rates across Negative Cohorts (Semantic Engine ON)",
+                "### False Positive Rates across Negative Cohorts (Headline Engine Default)",
                 "",
                 "| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |",
                 "| :---: | :---: | :---: | :---: | :---: | :---: |",
             ])
             for thresh in [0.05, 0.10, 0.15, 0.25]:
-                fpr_c = gfpr.get("c_original", {}).get(thresh, 0.0)
-                fpr_d = gfpr.get("d_ai_style", {}).get(thresh, 0.0)
-                fpr_e = gfpr.get("e_non_native", {}).get(thresh, 0.0)
-                fpr_i = gfpr.get("i_same_topic_originals", {}).get(thresh, 0.0)
-                fpr_j = gfpr.get("j_common_knowledge", {}).get(thresh, 0.0)
+                fpr_c = (gfpr.get("c_original") or {}).get(thresh, 0.0)
+                fpr_d = (gfpr.get("d_ai_style") or {}).get(thresh, 0.0)
+                fpr_e = (gfpr.get("e_non_native") or {}).get(thresh, 0.0)
+                fpr_i = (gfpr.get("i_same_topic_originals") or {}).get(thresh, 0.0)
+                fpr_j = (gfpr.get("j_common_knowledge") or {}).get(thresh, 0.0)
                 lines.append(
                     f"| {thresh:.0%} | {fpr_c:.2%} | {fpr_d:.2%} | {fpr_e:.2%} | {fpr_i:.2%} | {fpr_j:.2%} |"
                 )
+
+        if summary["plagiarism"].get("group_fpr_optin_by_threshold") and (summary["plagiarism"]["group_fpr_optin_by_threshold"].get("i_same_topic_originals")):
+            gfpr_o = summary["plagiarism"]["group_fpr_optin_by_threshold"] or {}
+            lines.extend([
+                "",
+                "### False Positive Rates across Negative Cohorts (Opt-In Engine: Semantic in Score)",
+                "",
+                "| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |",
+                "| :---: | :---: | :---: | :---: | :---: | :---: |",
+            ])
+            for thresh in [0.05, 0.10, 0.15, 0.25]:
+                fpr_c = (gfpr_o.get("c_original") or {}).get(thresh, 0.0)
+                fpr_d = (gfpr_o.get("d_ai_style") or {}).get(thresh, 0.0)
+                fpr_e = (gfpr_o.get("e_non_native") or {}).get(thresh, 0.0)
+                fpr_i = (gfpr_o.get("i_same_topic_originals") or {}).get(thresh, 0.0)
+                fpr_j = (gfpr_o.get("j_common_knowledge") or {}).get(thresh, 0.0)
+                lines.append(
+                    f"| {thresh:.0%} | {fpr_c:.2%} | {fpr_d:.2%} | {fpr_e:.2%} | {fpr_i:.2%} | {fpr_j:.2%} |"
+                )
+
+        # 1b. Paraphrase Leads & Lexical Anchors Evaluation
+        if summary["plagiarism"].get("lead_statistics"):
+            l_stats = summary["plagiarism"]["lead_statistics"]
+            roc = summary["plagiarism"].get("roc_auc", {})
+            lines.extend([
+                "",
+                "## 1b. Paraphrase Leads & Lexical Anchors Evaluation",
+                "",
+                "> **Explanatory Note**: Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source.",
+                "> **Interpretation Guide**: Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only.",
+                "",
+                "### Lead Statistics Across Cohorts",
+                "",
+                "| Cohort | Mean Leads / Doc | Mean Strong Leads / Doc | Mean Weak Leads / Doc | Flagged Rate |",
+                "| :--- | :---: | :---: | :---: | :---: |",
+            ])
+            cohort_names = [
+                ("Group A (Copies)", "a_copies"),
+                ("Group B (Easy Paraphrases)", "b_paraphrases"),
+                ("Group B (Hard Complex Paraphrases)", "b_paraphrases_hard"),
+                ("Group C (Unrelated Originals)", "c_original"),
+                ("Group D (AI Generated)", "d_ai_style"),
+                ("Group E (ESL Non-Native)", "e_non_native"),
+                ("Group I (Same-Topic Originals)", "i_same_topic_originals"),
+                ("Group J (Common Knowledge)", "j_common_knowledge"),
+            ]
+            for label, key in cohort_names:
+                cs = l_stats.get(key, {})
+                lines.append(
+                    f"| {label} | {cs.get('mean_leads_per_doc', 0):.2f} | {cs.get('mean_strong_leads_per_doc', 0):.2f} | {cs.get('mean_weak_leads_per_doc', 0):.2f} | {cs.get('flagged_rate', 0):.2%} |"
+                )
+
+            lines.append(f"\n- **Strong-Lead Precision (Group B vs Group I)**: **{l_stats.get('strong_lead_precision_b_vs_i', 0):.2%}**")
+
+            if roc:
+                lines.extend([
+                    "",
+                    "### Ordering Metric (ROC AUC) on Paraphrase vs. Same-Topic Spans",
+                    "",
+                    "| Ordering Metric | ROC AUC | Finding |",
+                    "| :--- | :---: | :--- |",
+                    f"| **Cosine Alone** | **{roc.get('roc_auc_cosine_alone', 0):.4f}** | Near-random (~0.50); cosine overlaps between paraphrases and same-topic text |",
+                    f"| **Anchor Count Alone** | **{roc.get('roc_auc_anchors_alone', 0):.4f}** | Inverted discrimination; technical vocabulary is dense in originals |",
+                    f"| **Cosine + Anchors Composite** | **{roc.get('roc_auc_composite', 0):.4f}** | Negligible improvement; anchors do not cleanly separate domains |",
+                ])
+
+        if summary["plagiarism"].get("anchor_grid_evaluation"):
+            lines.extend([
+                "",
+                "### Lexical Anchor Rule Grid Search (N in {1,2,3,4}, ratio in {0.1, 0.2, 0.3})",
+                "",
+                "| Min Anchors (N) | Min Content Ratio | Group B Recall (All) | Group B Recall (Easy) | Group B Recall (Hard) | Group I FPR | Group J FPR | Rule Status |",
+                "| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
+            ])
+            for gr in summary["plagiarism"]["anchor_grid_evaluation"]:
+                status = "Qualifies for Strong Lead" if gr["qualifies_rule"] else ("Recall collapses (<70%)" if gr["recall_b_all"] < 0.70 else "Does not cut FPR by half")
+                lines.append(
+                    f"| {gr['N']} | {gr['ratio']:.1f} | {gr['recall_b_all']:.2%} | {gr['recall_b_easy']:.2%} | {gr['recall_b_hard']:.2%} | {gr['fpr_i']:.2%} | {gr['fpr_j']:.2%} | {status} |"
+                )
+            lines.extend([
+                "",
+                "> **Honest Technical Conclusion**: Because no parameter combination achieved Group B recall >= 70% while reducing Group I FPR by half (to <= 47.5%), lexical anchors cannot reliably separate same-topic technical writing from true paraphrases using this model (`all-MiniLM-L6-v2`) on this synthetic corpus. Semantic matching is kept strictly out of the default headline score. Matches meeting anchor criteria are tagged as 'strong lead' and others as 'weak lead' for human review only.",
+            ])
 
         # Mean similarity per group
         by_eng = summary["plagiarism"].get("mean_similarity_by_engine")
         if by_eng:
             ex_m = by_eng.get("exact", {})
-            sem_m = by_eng.get("semantic") or {}
+            sem_head = by_eng.get("semantic_headline") or ex_m
+            sem_opt = by_eng.get("semantic_optin") or {}
             lines.extend([
                 "",
-                "**Mean Similarity Score by Cohort (Exact vs. Semantic)**:",
-                f"- Group A (Verbatim / Lightly Edited Copies): Exact **{ex_m.get('a_copies', 0):.2%}** | Semantic **{sem_m.get('a_copies', ex_m.get('a_copies', 0)):.2%}**",
-                f"- Group B (Easy Paraphrased Passages): Exact **{ex_m.get('b_paraphrases', 0):.2%}** | Semantic **{sem_m.get('b_paraphrases', 0):.2%}**",
-                f"- Group B (Hard Complex Paraphrases): Exact **{ex_m.get('b_paraphrases_hard', 0):.2%}** | Semantic **{sem_m.get('b_paraphrases_hard', 0):.2%}**",
-                f"- Group C (Unrelated Human Originals): Exact **{ex_m.get('c_original', 0):.2%}** | Semantic **{sem_m.get('c_original', 0):.2%}**",
-                f"- Group D (AI-Generated Text): Exact **{ex_m.get('d_ai_style', 0):.2%}** | Semantic **{sem_m.get('d_ai_style', 0):.2%}**",
-                f"- Group E (Non-Native English): Exact **{ex_m.get('e_non_native', 0):.2%}** | Semantic **{sem_m.get('e_non_native', 0):.2%}**",
-                f"- Group I (Same-Topic Originals): Exact **{ex_m.get('i_same_topic_originals', 0):.2%}** | Semantic **{sem_m.get('i_same_topic_originals', 0):.2%}**",
-                f"- Group J (Common Knowledge Definitions): Exact **{ex_m.get('j_common_knowledge', 0):.2%}** | Semantic **{sem_m.get('j_common_knowledge', 0):.2%}**",
+                "**Mean Similarity Score by Cohort (Exact/Headline vs. Opt-In Semantic)**:",
+                f"- Group A (Verbatim / Lightly Edited Copies): Exact/Headline **{sem_head.get('a_copies', 0):.2%}** | Opt-In Semantic **{sem_opt.get('a_copies', 0):.2%}**",
+                f"- Group B (Easy Paraphrased Passages): Exact/Headline **{sem_head.get('b_paraphrases', 0):.2%}** | Opt-In Semantic **{sem_opt.get('b_paraphrases', 0):.2%}**",
+                f"- Group B (Hard Complex Paraphrases): Exact/Headline **{sem_head.get('b_paraphrases_hard', 0):.2%}** | Opt-In Semantic **{sem_opt.get('b_paraphrases_hard', 0):.2%}**",
+                f"- Group C (Unrelated Human Originals): Exact/Headline **{sem_head.get('c_original', 0):.2%}** | Opt-In Semantic **{sem_opt.get('c_original', 0):.2%}**",
+                f"- Group D (AI-Generated Text): Exact/Headline **{sem_head.get('d_ai_style', 0):.2%}** | Opt-In Semantic **{sem_opt.get('d_ai_style', 0):.2%}**",
+                f"- Group E (Non-Native English): Exact/Headline **{sem_head.get('e_non_native', 0):.2%}** | Opt-In Semantic **{sem_opt.get('e_non_native', 0):.2%}**",
+                f"- Group I (Same-Topic Originals): Exact/Headline **{sem_head.get('i_same_topic_originals', 0):.2%}** | Opt-In Semantic **{sem_opt.get('i_same_topic_originals', 0):.2%}**",
+                f"- Group J (Common Knowledge Definitions): Exact/Headline **{sem_head.get('j_common_knowledge', 0):.2%}** | Opt-In Semantic **{sem_opt.get('j_common_knowledge', 0):.2%}**",
             ])
         else:
             mean_sims = summary["plagiarism"]["mean_similarity_per_group"]

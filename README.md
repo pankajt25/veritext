@@ -124,35 +124,37 @@ Veritext was evaluated against a synthetic benchmark dataset of 114 documents ac
 
 ### Plagiarism Detection Ablation (Headline Threshold: 15%)
 
+> **Headline Scoring Rule (v1.0.3)**: Headline similarity percentage is computed **ONLY** from exact and near-copy matches. Semantic vector matches are strictly excluded by default to eliminate false positives on technical terminology and are presented separately as unverified paraphrase review leads.
+
 | Method / Configuration | Accuracy | Precision | Recall | F1 Score | False Positive Rate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Exact Winnowing (Veritext)** | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| **Headline Score / Exact Winnowing (Veritext Default)** | **77.27%** | **100.00%** | **37.50%** | **54.55%** | **0.00%** |
 | Baseline (difflib SequenceMatcher) | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
-| **Winnowing + Semantic Paraphrase** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| *Winnowing + Semantic (Opt-In: `--include-semantic-in-score`)* | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
 #### Decision Threshold Sensitivity Analysis
 
 | Threshold | Method | Accuracy | Precision | Recall | F1 Score | Overall FPR |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| 5% | Exact Winnowing | 77.27% | 94.12% | 40.00% | 56.14% | 1.43% |
-| 5% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
-| 10% | Exact Winnowing | 78.18% | 100.00% | 40.00% | 57.14% | 0.00% |
-| 10% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
-| 15% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 15% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
-| 25% | Exact Winnowing | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
-| 25% | **Winnowing + Semantic** | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 5% | **Headline Score (Default)** | 77.27% | 94.12% | 40.00% | 56.14% | 1.43% |
+| 5% | *Winnowing + Semantic (Opt-In)* | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 10% | **Headline Score (Default)** | 78.18% | 100.00% | 40.00% | 57.14% | 0.00% |
+| 10% | *Winnowing + Semantic (Opt-In)* | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 15% | **Headline Score (Default)** | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 15% | *Winnowing + Semantic (Opt-In)* | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
+| 25% | **Headline Score (Default)** | 77.27% | 100.00% | 37.50% | 54.55% | 0.00% |
+| 25% | *Winnowing + Semantic (Opt-In)* | 79.09% | 65.45% | 90.00% | 75.79% | 27.14% |
 
-#### Paraphrase Recall: Easy vs. Hard Subsets
+#### False Positive Rates across Negative Cohorts (Headline Engine Default)
 
-| Threshold | Group A (Copies) | Group B Easy Paraphrases | Group B Hard Paraphrases (Complex) |
-| :---: | :---: | :---: | :---: |
-| 5% | 100.00% | 93.33% | 70.00% |
-| 10% | 100.00% | 93.33% | 70.00% |
-| 15% | 100.00% | 93.33% | 70.00% |
-| 25% | 100.00% | 93.33% | 70.00% |
+| Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 5% | 0.00% | 0.00% | 0.00% | 5.00% | 0.00% |
+| 10% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+| 15% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+| 25% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
 
-#### False Positive Rates across Negative Cohorts (Semantic Engine ON)
+#### False Positive Rates across Negative Cohorts (Opt-In Engine: Semantic in Score)
 
 | Threshold | Group C (Originals) | Group D (AI Text) | Group E (ESL Non-Native) | Group I (Same-Topic Originals) | Group J (Common Knowledge) |
 | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -161,15 +163,62 @@ Veritext was evaluated against a synthetic benchmark dataset of 114 documents ac
 | 15% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
 | 25% | 0.00% | 0.00% | 0.00% | 95.00% | 0.00% |
 
-- **Mean Similarity Detected**:
-  - Group A (Verbatim Copies): Exact **98.28%** | Semantic **98.28%**
-  - Group B (Easy Paraphrases): Exact **0.85%** | Semantic **68.44%**
-  - Group B (Hard Complex Paraphrases): Exact **0.00%** | Semantic **43.74%**
-  - Group C (Unrelated Originals): Exact **0.00%** | Semantic **0.00%**
-  - Group D (AI-Generated Text): Exact **0.00%** | Semantic **0.00%**
-  - Group E (Non-Native English): Exact **0.00%** | Semantic **0.00%**
-  - Group I (Same-Topic Originals): Exact **0.51%** | Semantic **65.85%**
-  - Group J (Common Knowledge Definitions): Exact **0.00%** | Semantic **0.00%**
+### Paraphrase Leads & Lexical Anchors Evaluation
+
+> **Explanatory Note**: *Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source.*  
+> **Interpretation Guide**: *Strong lead: several matching sentences and shared specific terms; weak lead: similar topic only.*
+
+#### Lead Statistics Across Cohorts
+
+| Cohort | Mean Leads / Doc | Mean Strong Leads / Doc | Mean Weak Leads / Doc | Flagged Rate |
+| :--- | :---: | :---: | :---: | :---: |
+| Group A (Verbatim Copies) | 0.00 | 0.00 | 0.00 | 0.00% |
+| Group B (Easy Paraphrases) | 3.07 | 3.07 | 0.00 | 93.33% |
+| Group B (Hard Complex Paraphrases) | 2.20 | 2.20 | 0.00 | 80.00% |
+| Group C (Unrelated Originals) | 0.00 | 0.00 | 0.00 | 0.00% |
+| Group D (AI Generated Text) | 0.00 | 0.00 | 0.00 | 0.00% |
+| Group E (ESL Non-Native) | 0.00 | 0.00 | 0.00 | 0.00% |
+| Group I (Same-Topic Originals) | 2.70 | 2.70 | 0.00 | 95.00% |
+| Group J (Common Knowledge Definitions) | 0.00 | 0.00 | 0.00 | 0.00% |
+
+- **Strong-Lead Precision (Group B vs Group I)**: **55.74%**
+
+#### Ordering Metric (ROC AUC) on Paraphrase vs. Same-Topic Spans
+
+| Ordering Metric | ROC AUC | Finding |
+| :--- | :---: | :--- |
+| **Cosine Alone** | **0.5340** | Near-random (~0.50); cosine values overlap heavily between true paraphrases and same-topic text |
+| **Anchor Count Alone** | **0.3622** | Inverted discrimination; technical vocabulary is dense in same-topic original writing |
+| **Cosine + Anchors Composite** | **0.4939** | No separation; lexical anchors do not cleanly disambiguate same-topic domains |
+
+#### Lexical Anchor Rule Grid Search ($N \in \{1,2,3,4\}$, ratio $\in \{0.1, 0.2, 0.3\}$)
+
+| Min Anchors ($N$) | Min Content Ratio | Group B Recall (All) | Group B Recall (Easy) | Group B Recall (Hard) | Group I FPR | Group J FPR | Rule Status |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| 1 | 0.1 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 1 | 0.2 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 1 | 0.3 | 72.00% | 93.33% | 40.00% | 90.00% | 0.00% | Does not cut FPR by half |
+| 2 | 0.1 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 2 | 0.2 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 2 | 0.3 | 72.00% | 93.33% | 40.00% | 90.00% | 0.00% | Does not cut FPR by half |
+| 3 | 0.1 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 3 | 0.2 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 3 | 0.3 | 72.00% | 93.33% | 40.00% | 90.00% | 0.00% | Does not cut FPR by half |
+| 4 | 0.1 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 4 | 0.2 | 88.00% | 93.33% | 80.00% | 95.00% | 0.00% | Does not cut FPR by half |
+| 4 | 0.3 | 72.00% | 93.33% | 40.00% | 90.00% | 0.00% | Does not cut FPR by half |
+
+> **Honest Technical Limitation**: Because no parameter setting kept Group B recall $\ge 70\%$ while cutting Group I FPR by half (to $\le 47.5\%$), the semantic matcher cannot reliably separate same-topic technical writing from paraphrases using `all-MiniLM-L6-v2`. Semantic matches are kept strictly out of the default headline score. Tuning and evaluation use the same small synthetic corpus, so reported numbers are optimistic. Veritext makes no claims of parity with commercial proprietary platforms.
+
+- **Mean Similarity Detected by Cohort**:
+  - Group A (Verbatim Copies): Headline **98.28%** | Opt-In Semantic **98.28%**
+  - Group B (Easy Paraphrases): Headline **0.85%** | Opt-In Semantic **68.44%**
+  - Group B (Hard Complex Paraphrases): Headline **0.00%** | Opt-In Semantic **43.74%**
+  - Group C (Unrelated Originals): Headline **0.00%** | Opt-In Semantic **0.00%**
+  - Group D (AI-Generated Text): Headline **0.00%** | Opt-In Semantic **0.00%**
+  - Group E (Non-Native English): Headline **0.00%** | Opt-In Semantic **0.00%**
+  - Group I (Same-Topic Originals): Headline **0.51%** | Opt-In Semantic **65.85%**
+  - Group J (Common Knowledge Definitions): Headline **0.00%** | Opt-In Semantic **0.00%**
 
 ### AI Detection Ablation
 
@@ -191,6 +240,30 @@ Veritext was evaluated against a synthetic benchmark dataset of 114 documents ac
 | **Fingerprint Index Screening** | True Pairs Candidate Recall | **100.00%** | Exact Inverted Index (Default) |
 | **MinHash / LSH Screening** | True Pairs Candidate Recall | **100.00%** | Adaptive (64x2) Carter-Wegman 128-perm |
 | **Cryptographic Report Seals** | Tamper Detection Rate | **100.00%** | HMAC-SHA256 (1-char edit) |
+
+---
+
+## How to Read a Veritext Report
+
+A Veritext verification report (CLI, UI, JSON, HTML, PDF) provides clear separation between mathematical exact copy detection and exploratory semantic analysis:
+
+1. **Headline Similarity Percentage**:
+   - **What it measures**: Computed **strictly** from exact and near-copy matches using winnowing token fingerprints.
+   - **Label**: `"exact & near-copy matches only"`.
+   - **Confidence**: High precision (0.00% false-positive rate across negative cohorts at standard thresholds). This is your primary metric for objective textual duplication.
+2. **Paraphrase Leads (Review)**:
+   - **What it measures**: Semantic vector passages (`all-MiniLM-L6-v2`) showing conceptual similarity with candidate sources.
+   - **Why separate?**: Passages written independently on the same specialized technical topic naturally share embedding neighborhoods (median cosine ~0.81). Treating them as plagiarism leads to a 95% false-positive rate on same-topic writing.
+   - **Explanatory line**: *"Similar meaning is not proof of copying; passages on the same topic often match. Check the linked source."*
+   - **Interpretation guide**:
+     - **Strong lead**: Several matching sentences and shared specific terms, numbers, or rare entities.
+     - **Weak lead**: Similar topic only, without distinctive lexical anchors.
+3. **Leads Grouped by Source**:
+   - The reports group paraphrase leads by candidate source and show lead counts per source.
+   - A cluster of multiple leads against a single document warrants focused academic review, whereas scattered single leads across unrelated documents typically indicate common disciplinary vocabulary.
+4. **Opt-in Legacy Mode (`--include-semantic-in-score`)**:
+   - For users who require the legacy behavior of adding semantic matches directly into the document similarity percentage, pass `--include-semantic-in-score`.
+   - The report will explicitly label the metric: `"score includes unverified semantic leads"`.
 
 ---
 
@@ -244,7 +317,7 @@ If you use Veritext in your research or educational institution, please cite:
   title = {Veritext: Free, Open-Source Plagiarism, AI-Written Text and Academic Integrity Suite},
   year = {2026},
   url = {https://github.com/pankajt25/veritext},
-  version = {1.0.2}
+  version = {1.0.3}
 }
 ```
 

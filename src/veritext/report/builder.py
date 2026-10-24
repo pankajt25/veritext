@@ -67,8 +67,13 @@ def build_report(
         for src in similarity.sources:
             for sp in src.spans:
                 sp_type = getattr(sp, "type", "exact")
-                cat = "exact match" if sp_type in ("exact", "near_copy") else "possible paraphrase (review)"
-                sev = "high" if sp_type == "exact" else "warning"
+                lead_level = sp.metadata.get("lead_level")
+                if sp_type in ("exact", "near_copy"):
+                    cat = "exact match"
+                    sev = "high"
+                else:
+                    cat = f"paraphrase ({lead_level})" if lead_level else "possible paraphrase (review)"
+                    sev = "warning"
 
                 m_text = getattr(sp, "matched_text", "")
                 d_start = getattr(sp, "doc_start", 0)
@@ -98,6 +103,8 @@ def build_report(
                             "source_url": src.source_url,
                             "score": sp.score,
                             "match_type": sp_type,
+                            "lead_level": lead_level,
+                            "anchor_count": sp.metadata.get("anchor_count", 0),
                         },
                     )
                 )
@@ -182,7 +189,12 @@ def build_report(
     if similarity:
         sim_pct = similarity.similarity_percentage
         src_cnt = len(similarity.sources)
-        sim_summary = f"Plagiarism: {sim_pct:.1f}% similarity across {src_cnt} source(s)"
+        score_label = similarity.metadata.get("score_label", "exact & near-copy")
+        sim_summary = f"Plagiarism: {sim_pct:.1f}% similarity ({score_label}) across {src_cnt} source(s)"
+        leads_cnt = similarity.metadata.get("paraphrase_leads_count", 0)
+        leads_pct = similarity.metadata.get("paraphrase_leads_percentage", 0.0)
+        if leads_cnt > 0:
+            sim_summary += f" | Paraphrase leads (review): {leads_cnt} passages, {leads_pct:.1f}% of text"
         if fulltexts_fetched > 0:
             sim_summary += f" ({fulltexts_fetched} full-text retrieved)"
         summary_parts.append(sim_summary)

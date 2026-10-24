@@ -181,7 +181,7 @@ def test_scorer_and_json_serialization():
         matched_text="This is a document for te",
     )
     span2 = MatchSpan(
-        type="paraphrase",
+        type="near_copy",
         score=0.88,
         source_id="src_1",
         source_title="Source Alpha",

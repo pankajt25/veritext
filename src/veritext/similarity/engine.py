@@ -126,6 +126,7 @@ def check_document(
 
     # Step 6: Combine Spans and Compute Hybrid Score
     all_spans = exact_spans + semantic_spans
+    include_sem_in_score = opts.get("include_semantic_in_score", False)
     result = compute_similarity_score(
         clean_text=document.clean_text,
         spans=all_spans,
@@ -135,6 +136,7 @@ def check_document(
         min_match_chars=opts.get("min_match_chars", 25),
         anomalies=anomaly_dicts,
         include_single_window_semantic=include_single,
+        include_semantic_in_score=include_sem_in_score,
     )
     result.metadata["fulltexts_fetched"] = fulltexts_fetched
 

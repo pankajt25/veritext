@@ -1,7 +1,7 @@
 {
-  "ai_distilgpt2_sec_per_1000": 30.96,
+  "ai_distilgpt2_sec_per_1000": 49.48,
   "ai_stylometry_sec_per_1000": 0.05,
   "semantic_sec_per_1000": 15.93,
-  "timestamp": "2026-10-20T21:31:51.486461+00:00",
+  "timestamp": "2026-10-23T19:05:09.845819+00:00",
   "cpu_thread_count": 4
 }

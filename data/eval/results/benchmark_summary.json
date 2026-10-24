@@ -1,14 +1,40 @@
 {
-  "timestamp": "2026-10-23 17:54:22 UTC",
+  "timestamp": "2026-10-24 21:36:45 UTC",
   "total_documents_manifest": 150,
   "total_documents_evaluated": 114,
-  "total_runtime_seconds": 803.08,
-  "runtime_per_document_seconds": 7.0446,
-  "peak_memory_mb": 377.64,
+  "total_runtime_seconds": 761.05,
+  "runtime_per_document_seconds": 6.6759,
+  "peak_memory_mb": 377.68,
   "flags": {
     "semantic": true,
     "ai": true,
-    "crosslang": false
+    "crosslang": false,
+    "effective_semantic_threshold": 0.78,
+    "effective_min_consecutive_windows": 2,
+    "include_semantic_in_headline_by_default": false
+  },
+  "effective_semantic_settings": {
+    "cosine_threshold": 0.78,
+    "min_consecutive_windows": 2,
+    "include_semantic_in_headline_by_default": false,
+    "headline_score_formula": "exact_and_near_copy_only",
+    "paraphrase_leads_tracked_separately": true,
+    "lexical_anchors_evaluated": true,
+    "anchor_rule_criteria": {
+      "tested_rare_threshold_N": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "tested_content_ratios": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "cuts_group_i_fpr_by_half_with_70pct_recall": false,
+      "rule_status": "Kept out of headline defaults; labels spans as strong/weak lead for instructor review"
+    }
   },
   "plagiarism": {
     "headline_threshold": 0.15,
@@ -70,6 +96,56 @@
         }
       },
       "winnowing_and_semantic": {
+        "0.05": {
+          "tp": 16,
+          "fp": 1,
+          "tn": 69,
+          "fn": 24,
+          "total": 110,
+          "accuracy": 0.7727,
+          "precision": 0.9412,
+          "recall": 0.4,
+          "f1": 0.5614,
+          "fpr": 0.0143
+        },
+        "0.1": {
+          "tp": 16,
+          "fp": 0,
+          "tn": 70,
+          "fn": 24,
+          "total": 110,
+          "accuracy": 0.7818,
+          "precision": 1.0,
+          "recall": 0.4,
+          "f1": 0.5714,
+          "fpr": 0.0
+        },
+        "0.15": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 70,
+          "fn": 25,
+          "total": 110,
+          "accuracy": 0.7727,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        },
+        "0.25": {
+          "tp": 15,
+          "fp": 0,
+          "tn": 70,
+          "fn": 25,
+          "total": 110,
+          "accuracy": 0.7727,
+          "precision": 1.0,
+          "recall": 0.375,
+          "f1": 0.5455,
+          "fpr": 0.0
+        }
+      },
+      "semantic_optin_mode": {
         "0.05": {
           "tp": 36,
           "fp": 19,
@@ -190,6 +266,38 @@
         "0.25": 0.0
       },
       "i_same_topic_originals": {
+        "0.05": 0.05,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "j_common_knowledge": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      }
+    },
+    "group_fpr_optin_by_threshold": {
+      "c_original": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "d_ai_style": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "e_non_native": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "i_same_topic_originals": {
         "0.05": 0.95,
         "0.1": 0.95,
         "0.15": 0.95,
@@ -203,6 +311,26 @@
       }
     },
     "paraphrase_recall_breakdown": {
+      "a_copies": {
+        "0.05": 1.0,
+        "0.1": 1.0,
+        "0.15": 1.0,
+        "0.25": 1.0
+      },
+      "b_paraphrases": {
+        "0.05": 0.0667,
+        "0.1": 0.0667,
+        "0.15": 0.0,
+        "0.25": 0.0
+      },
+      "b_paraphrases_hard": {
+        "0.05": 0.0,
+        "0.1": 0.0,
+        "0.15": 0.0,
+        "0.25": 0.0
+      }
+    },
+    "paraphrase_recall_optin_breakdown": {
       "a_copies": {
         "0.05": 1.0,
         "0.1": 1.0,
@@ -224,13 +352,13 @@
     },
     "mean_similarity_per_group": {
       "j_common_knowledge": 0.0,
-      "e_non_native": 0.0,
-      "b_paraphrases_hard": 0.4374,
-      "c_original": 0.0,
       "a_copies": 0.9828,
       "d_ai_style": 0.0,
-      "i_same_topic_originals": 0.6585,
-      "b_paraphrases": 0.6844
+      "c_original": 0.0,
+      "b_paraphrases": 0.0085,
+      "b_paraphrases_hard": 0.0,
+      "i_same_topic_originals": 0.0051,
+      "e_non_native": 0.0
     },
     "mean_similarity_by_engine": {
       "exact": {
@@ -243,7 +371,17 @@
         "i_same_topic_originals": 0.0051,
         "j_common_knowledge": 0.0
       },
-      "semantic": {
+      "semantic_headline": {
+        "a_copies": 0.9828,
+        "b_paraphrases": 0.0085,
+        "b_paraphrases_hard": 0.0,
+        "c_original": 0.0,
+        "d_ai_style": 0.0,
+        "e_non_native": 0.0,
+        "i_same_topic_originals": 0.0051,
+        "j_common_knowledge": 0.0
+      },
+      "semantic_optin": {
         "a_copies": 0.9828,
         "b_paraphrases": 0.6844,
         "b_paraphrases_hard": 0.4374,
@@ -277,6 +415,18 @@
       "fpr": 0.0
     },
     "winnowing_and_semantic": {
+      "tp": 15,
+      "fp": 0,
+      "tn": 70,
+      "fn": 25,
+      "total": 110,
+      "accuracy": 0.7727,
+      "precision": 1.0,
+      "recall": 0.375,
+      "f1": 0.5455,
+      "fpr": 0.0
+    },
+    "semantic_optin_mode": {
       "tp": 36,
       "fp": 19,
       "tn": 51,
@@ -300,6 +450,225 @@
       "f1": 0.5455,
       "fpr": 0.0
     },
+    "lead_statistics": {
+      "j_common_knowledge": {
+        "mean_leads_per_doc": 0.0,
+        "mean_strong_leads_per_doc": 0.0,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 0.0,
+        "total_leads": 0,
+        "total_strong_leads": 0,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 0,
+        "flagged_rate": 0.0
+      },
+      "a_copies": {
+        "mean_leads_per_doc": 0.0,
+        "mean_strong_leads_per_doc": 0.0,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 0.0,
+        "total_leads": 0,
+        "total_strong_leads": 0,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 0,
+        "flagged_rate": 0.0
+      },
+      "d_ai_style": {
+        "mean_leads_per_doc": 0.0,
+        "mean_strong_leads_per_doc": 0.0,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 0.0,
+        "total_leads": 0,
+        "total_strong_leads": 0,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 0,
+        "flagged_rate": 0.0
+      },
+      "c_original": {
+        "mean_leads_per_doc": 0.0,
+        "mean_strong_leads_per_doc": 0.0,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 0.0,
+        "total_leads": 0,
+        "total_strong_leads": 0,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 0,
+        "flagged_rate": 0.0
+      },
+      "b_paraphrases": {
+        "mean_leads_per_doc": 3.07,
+        "mean_strong_leads_per_doc": 3.07,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 68.44,
+        "total_leads": 46,
+        "total_strong_leads": 46,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 14,
+        "flagged_rate": 0.9333
+      },
+      "b_paraphrases_hard": {
+        "mean_leads_per_doc": 2.2,
+        "mean_strong_leads_per_doc": 2.2,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 47.02,
+        "total_leads": 22,
+        "total_strong_leads": 22,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 8,
+        "flagged_rate": 0.8
+      },
+      "i_same_topic_originals": {
+        "mean_leads_per_doc": 2.7,
+        "mean_strong_leads_per_doc": 2.7,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 66.67,
+        "total_leads": 54,
+        "total_strong_leads": 54,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 19,
+        "flagged_rate": 0.95
+      },
+      "e_non_native": {
+        "mean_leads_per_doc": 0.0,
+        "mean_strong_leads_per_doc": 0.0,
+        "mean_weak_leads_per_doc": 0.0,
+        "mean_lead_percentage": 0.0,
+        "total_leads": 0,
+        "total_strong_leads": 0,
+        "total_weak_leads": 0,
+        "docs_flagged_with_leads": 0,
+        "flagged_rate": 0.0
+      },
+      "strong_lead_precision_b_vs_i": 0.5574
+    },
+    "roc_auc": {
+      "spans_evaluated": 122,
+      "roc_auc_cosine_alone": 0.534,
+      "roc_auc_anchors_alone": 0.3622,
+      "roc_auc_composite": 0.4939
+    },
+    "anchor_grid_evaluation": [
+      {
+        "N": 1,
+        "ratio": 0.1,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 1,
+        "ratio": 0.2,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 1,
+        "ratio": 0.3,
+        "recall_b_all": 0.72,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.4,
+        "fpr_i": 0.9,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 2,
+        "ratio": 0.1,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 2,
+        "ratio": 0.2,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 2,
+        "ratio": 0.3,
+        "recall_b_all": 0.72,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.4,
+        "fpr_i": 0.9,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 3,
+        "ratio": 0.1,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 3,
+        "ratio": 0.2,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 3,
+        "ratio": 0.3,
+        "recall_b_all": 0.72,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.4,
+        "fpr_i": 0.9,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 4,
+        "ratio": 0.1,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 4,
+        "ratio": 0.2,
+        "recall_b_all": 0.88,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.8,
+        "fpr_i": 0.95,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      },
+      {
+        "N": 4,
+        "ratio": 0.3,
+        "recall_b_all": 0.72,
+        "recall_b_easy": 0.9333,
+        "recall_b_hard": 0.4,
+        "fpr_i": 0.9,
+        "fpr_j": 0.0,
+        "qualifies_rule": false
+      }
+    ],
     "span_level_metrics": {
       "mean_exact_spans_per_doc": {
         "a_copies": 1.0,
@@ -325,32 +694,179 @@
       "total_semantic_spans_found": 122
     },
     "failure_cases": {
-      "missed_paraphrases_easy_count": 1,
+      "missed_paraphrases_easy_count": 15,
       "missed_paraphrases_easy": [
         {
           "file": "para_01.txt",
           "group": "b_paraphrases",
           "winnow_score": 0.0,
-          "semantic_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.0,
           "baseline_score": 0.0696,
           "notes": "Paraphrase of ref_01.txt"
+        },
+        {
+          "file": "para_02.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.7921,
+          "baseline_score": 0.0856,
+          "notes": "Paraphrase of ref_02.txt"
+        },
+        {
+          "file": "para_03.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.7729,
+          "baseline_score": 0.0294,
+          "notes": "Paraphrase of ref_03.txt"
+        },
+        {
+          "file": "para_04.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.5436,
+          "baseline_score": 0.2264,
+          "notes": "Paraphrase of ref_04.txt"
+        },
+        {
+          "file": "para_05.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.1272,
+          "headline_score": 0.1272,
+          "optin_score": 1.0,
+          "baseline_score": 0.1922,
+          "notes": "Paraphrase of ref_05.txt"
+        },
+        {
+          "file": "para_06.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.996,
+          "baseline_score": 0.0482,
+          "notes": "Paraphrase of ref_06.txt"
+        },
+        {
+          "file": "para_07.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.7719,
+          "baseline_score": 0.0411,
+          "notes": "Paraphrase of ref_07.txt"
+        },
+        {
+          "file": "para_08.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.8449,
+          "baseline_score": 0.0483,
+          "notes": "Paraphrase of ref_08.txt"
+        },
+        {
+          "file": "para_09.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.5524,
+          "baseline_score": 0.0843,
+          "notes": "Paraphrase of ref_09.txt"
+        },
+        {
+          "file": "para_10.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.7413,
+          "baseline_score": 0.1573,
+          "notes": "Paraphrase of ref_10.txt"
+        },
+        {
+          "file": "para_11.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.4443,
+          "baseline_score": 0.0963,
+          "notes": "Paraphrase of ref_11.txt"
+        },
+        {
+          "file": "para_12.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.6536,
+          "baseline_score": 0.0356,
+          "notes": "Paraphrase of ref_12.txt"
+        },
+        {
+          "file": "para_13.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.4653,
+          "baseline_score": 0.0379,
+          "notes": "Paraphrase of ref_13.txt"
+        },
+        {
+          "file": "para_14.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.6919,
+          "baseline_score": 0.0316,
+          "notes": "Paraphrase of ref_14.txt"
+        },
+        {
+          "file": "para_15.txt",
+          "group": "b_paraphrases",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.9954,
+          "baseline_score": 0.0419,
+          "notes": "Paraphrase of ref_15.txt"
         }
       ],
-      "missed_paraphrases_hard_count": 3,
+      "missed_paraphrases_hard_count": 10,
       "missed_paraphrases_hard": [
         {
           "file": "para_hard_01.txt",
           "group": "b_paraphrases_hard",
           "winnow_score": 0.0,
-          "semantic_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.0,
           "baseline_score": 0.1008,
           "notes": "Hard complex paraphrase of ref_01.txt"
+        },
+        {
+          "file": "para_hard_02.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.4608,
+          "baseline_score": 0.0439,
+          "notes": "Hard complex paraphrase of ref_02.txt"
+        },
+        {
+          "file": "para_hard_03.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.7402,
+          "baseline_score": 0.0296,
+          "notes": "Hard complex paraphrase of ref_03.txt"
         },
         {
           "file": "para_hard_04.txt",
           "group": "b_paraphrases_hard",
           "winnow_score": 0.0,
-          "semantic_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.0,
           "baseline_score": 0.0368,
           "notes": "Hard complex paraphrase of ref_04.txt"
         },
@@ -358,148 +874,60 @@
           "file": "para_hard_05.txt",
           "group": "b_paraphrases_hard",
           "winnow_score": 0.0,
-          "semantic_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.0,
           "baseline_score": 0.037,
           "notes": "Hard complex paraphrase of ref_05.txt"
+        },
+        {
+          "file": "para_hard_06.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.8237,
+          "baseline_score": 0.0322,
+          "notes": "Hard complex paraphrase of ref_06.txt"
+        },
+        {
+          "file": "para_hard_07.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.5676,
+          "baseline_score": 0.0303,
+          "notes": "Hard complex paraphrase of ref_07.txt"
+        },
+        {
+          "file": "para_hard_08.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.8091,
+          "baseline_score": 0.0948,
+          "notes": "Hard complex paraphrase of ref_08.txt"
+        },
+        {
+          "file": "para_hard_09.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.5272,
+          "baseline_score": 0.0785,
+          "notes": "Hard complex paraphrase of ref_09.txt"
+        },
+        {
+          "file": "para_hard_10.txt",
+          "group": "b_paraphrases_hard",
+          "winnow_score": 0.0,
+          "headline_score": 0.0,
+          "optin_score": 0.4455,
+          "baseline_score": 0.0502,
+          "notes": "Hard complex paraphrase of ref_10.txt"
         }
       ],
-      "missed_paraphrases_count": 4,
-      "false_positives_count": 19,
-      "false_positives": [
-        {
-          "file": "same_topic_02.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.6389,
-          "notes": "Original text on same topic as ref_02.txt"
-        },
-        {
-          "file": "same_topic_03.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.7485,
-          "notes": "Original text on same topic as ref_03.txt"
-        },
-        {
-          "file": "same_topic_04.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.4269,
-          "notes": "Original text on same topic as ref_04.txt"
-        },
-        {
-          "file": "same_topic_05.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.7519,
-          "notes": "Original text on same topic as ref_05.txt"
-        },
-        {
-          "file": "same_topic_06.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.8241,
-          "notes": "Original text on same topic as ref_06.txt"
-        },
-        {
-          "file": "same_topic_07.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.7257,
-          "notes": "Original text on same topic as ref_07.txt"
-        },
-        {
-          "file": "same_topic_08.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.635,
-          "notes": "Original text on same topic as ref_08.txt"
-        },
-        {
-          "file": "same_topic_09.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.5756,
-          "notes": "Original text on same topic as ref_09.txt"
-        },
-        {
-          "file": "same_topic_10.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.6527,
-          "notes": "Original text on same topic as ref_10.txt"
-        },
-        {
-          "file": "same_topic_11.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.3593,
-          "notes": "Original text on same topic as ref_11.txt"
-        },
-        {
-          "file": "same_topic_12.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0541,
-          "semantic_score": 0.6554,
-          "notes": "Original text on same topic as ref_12.txt"
-        },
-        {
-          "file": "same_topic_13.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.4281,
-          "notes": "Original text on same topic as ref_13.txt"
-        },
-        {
-          "file": "same_topic_14.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0487,
-          "semantic_score": 0.9955,
-          "notes": "Original text on same topic as ref_14.txt"
-        },
-        {
-          "file": "same_topic_15.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.9978,
-          "notes": "Original text on same topic as ref_15.txt"
-        },
-        {
-          "file": "same_topic_16.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.9032,
-          "notes": "Original text on same topic as ref_16.txt"
-        },
-        {
-          "file": "same_topic_17.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.4227,
-          "notes": "Original text on same topic as ref_17.txt"
-        },
-        {
-          "file": "same_topic_18.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.4356,
-          "notes": "Original text on same topic as ref_18.txt"
-        },
-        {
-          "file": "same_topic_19.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.9966,
-          "notes": "Original text on same topic as ref_19.txt"
-        },
-        {
-          "file": "same_topic_20.txt",
-          "group": "i_same_topic_originals",
-          "winnow_score": 0.0,
-          "semantic_score": 0.9967,
-          "notes": "Original text on same topic as ref_20.txt"
-        }
-      ]
+      "missed_paraphrases_count": 25,
+      "false_positives_count": 0,
+      "false_positives": []
     }
   },
   "ai_detection": {
@@ -567,22 +995,22 @@
     "total_submissions": 8,
     "expected_collusion_pairs": [
       [
-        "class_sub_01.txt",
-        "class_sub_02.txt"
-      ],
-      [
         "class_sub_03.txt",
         "class_sub_04.txt"
+      ],
+      [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
       ]
     ],
     "detected_pairwise_pairs": [
       [
-        "class_sub_01.txt",
-        "class_sub_02.txt"
-      ],
-      [
         "class_sub_03.txt",
         "class_sub_04.txt"
+      ],
+      [
+        "class_sub_01.txt",
+        "class_sub_02.txt"
       ]
     ],
     "fingerprint_index_candidates": [

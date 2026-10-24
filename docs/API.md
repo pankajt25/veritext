@@ -67,7 +67,7 @@ curl -X GET http://127.0.0.1:8600/health
 ```json
 {
   "status": "ok",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "worker_running": true,
   "jobs_in_queue": 0,
   "timestamp": "2026-10-21T11:45:00.000000+00:00"

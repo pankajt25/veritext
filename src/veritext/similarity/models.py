@@ -52,6 +52,10 @@ class SourceMatch:
     percentage: float
     match_count: int
     spans: List[MatchSpan] = field(default_factory=list)
+    lead_count: int = 0
+    strong_lead_count: int = 0
+    weak_lead_count: int = 0
+    lead_percentage: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -62,6 +66,10 @@ class SourceMatch:
             "matched_chars": self.matched_chars,
             "percentage": round(self.percentage, 2),
             "match_count": self.match_count,
+            "lead_count": self.lead_count,
+            "strong_lead_count": self.strong_lead_count,
+            "weak_lead_count": self.weak_lead_count,
+            "lead_percentage": round(self.lead_percentage, 2),
             "spans": [s.to_dict() for s in self.spans],
         }
 
@@ -91,6 +99,13 @@ class SimilarityResult:
             "total_clean_chars": self.total_clean_chars,
             "matched_chars": self.matched_chars,
             "similarity_percentage": round(self.similarity_percentage, 2),
+            "score_label": meta.get("score_label", "exact & near-copy matches only"),
+            "paraphrase_leads_count": meta.get("paraphrase_leads_count", 0),
+            "paraphrase_leads_percentage": meta.get("paraphrase_leads_percentage", 0.0),
+            "strong_leads_count": meta.get("strong_leads_count", 0),
+            "weak_leads_count": meta.get("weak_leads_count", 0),
+            "explanatory_line": meta.get("explanatory_line", ""),
+            "interpretation_guide": meta.get("interpretation_guide", ""),
             "span_count": len(self.spans),
             "source_count": len(self.sources),
             "anomaly_count": len(self.anomalies),

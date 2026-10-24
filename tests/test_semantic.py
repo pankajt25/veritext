@@ -241,8 +241,14 @@ def test_semantic_produces_paraphrase_spans_exact_does_not_mocked(tmp_path):
     assert sem_spans[0].type in ("near_copy", "paraphrase", "possible paraphrase (review)")
     assert sem_spans[0].score >= 0.75
 
-    # Overall similarity jumps from 0.0% to > 50%
-    score_semantic = compute_similarity_score(query_text, sem_spans, sources_map, include_single_window_semantic=True).similarity_percentage
+    # By default in v1.0.3, headline similarity score ignores semantic matches
+    score_headline_default = compute_similarity_score(query_text, sem_spans, sources_map).similarity_percentage
+    assert score_headline_default == 0.0
+
+    # With opt-in flag include_semantic_in_score=True, overall similarity jumps from 0.0% to > 50%
+    score_semantic = compute_similarity_score(
+        query_text, sem_spans, sources_map, include_single_window_semantic=True, include_semantic_in_score=True
+    ).similarity_percentage
     assert score_semantic > 50.0
 
 
@@ -351,27 +357,33 @@ def test_minimum_consecutive_windows_and_single_window_exclusion(tmp_path):
         assert sp.metadata["is_single_window"] is True
         assert sp.metadata["consecutive_windows"] == 1
 
-    # Default score calculation: single-window match from cand_b is EXCLUDED from headline percentage
+    # Default score calculation in v1.0.3: semantic matches are NOT added to headline percentage
     sources_map = {"cand_a": cand_a, "cand_b": cand_b}
-    res_default = compute_similarity_score(
-        raw, spans, sources_map, include_single_window_semantic=False
+    res_default = compute_similarity_score(raw, spans, sources_map)
+    assert res_default.similarity_percentage == 0.0
+    assert res_default.metadata["paraphrase_leads_count"] == len(spans)
+    assert res_default.metadata["score_label"] == "exact & near-copy matches only"
+
+    # Opt-in score calculation: single-window match from cand_b is EXCLUDED from score when include_single_window_semantic=False
+    res_optin = compute_similarity_score(
+        raw, spans, sources_map, include_semantic_in_score=True, include_single_window_semantic=False
     )
-    # Check that cand_b has 0% in headline score
-    cand_b_match = next((s for s in res_default.sources if s.source_id == "cand_b"), None)
+    assert res_optin.metadata["score_label"] == "score includes unverified semantic leads"
+    cand_b_match = next((s for s in res_optin.sources if s.source_id == "cand_b"), None)
     assert cand_b_match is not None
     assert cand_b_match.percentage == 0.0
-    # Headline percentage only reflects cand_a
-    cand_a_match = next(s for s in res_default.sources if s.source_id == "cand_a")
+    # Headline percentage in opt-in mode reflects cand_a
+    cand_a_match = next(s for s in res_optin.sources if s.source_id == "cand_a")
     assert cand_a_match.percentage > 0.0
-    assert res_default.similarity_percentage == cand_a_match.percentage
+    assert res_optin.similarity_percentage == cand_a_match.percentage
 
-    # When user enables include_single_window_semantic=True, cand_b is included
+    # When user also enables include_single_window_semantic=True in opt-in mode, cand_b is included
     res_with_single = compute_similarity_score(
-        raw, spans, sources_map, include_single_window_semantic=True
+        raw, spans, sources_map, include_semantic_in_score=True, include_single_window_semantic=True
     )
     cand_b_match_incl = next(s for s in res_with_single.sources if s.source_id == "cand_b")
     assert cand_b_match_incl.percentage > 0.0
-    assert res_with_single.similarity_percentage > res_default.similarity_percentage
+    assert res_with_single.similarity_percentage > res_optin.similarity_percentage
 
 
 @pytest.mark.slow
@@ -440,12 +452,18 @@ def test_real_paraphrase_fixtures_minilm_detection():
             threshold=0.70,
             model=model,
         )
-        sim_sem = compute_similarity_score(para_txt, exact_spans + sem_spans, sources_map).similarity_percentage
+        res_default = compute_similarity_score(para_txt, exact_spans + sem_spans, sources_map)
+        sim_sem = compute_similarity_score(
+            para_txt, exact_spans + sem_spans, sources_map, include_semantic_in_score=True
+        ).similarity_percentage
 
         # Exact winnowing finds minimal or zero spans
         assert sim_exact < 10.0, f"Expected exact score < 10% on paraphrase, got {sim_exact}%"
+        # Headline default ignores semantic spans
+        assert res_default.similarity_percentage < 10.0
         # Semantic search finds multiple high-confidence paraphrase spans
         assert len(sem_spans) >= 2, f"Expected >= 2 semantic spans on {para_fn}, got {len(sem_spans)}"
+        assert res_default.metadata["paraphrase_leads_count"] >= 2
         assert sim_sem >= 50.0, f"Expected semantic similarity >= 50% on {para_fn}, got {sim_sem}%"
 
 

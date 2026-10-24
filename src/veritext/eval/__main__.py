@@ -55,6 +55,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("Starting Veritext Evaluation Benchmark")
         print(f"  Output directory: {out_path}")
         print(f"  Semantic enabled: {semantic}")
+        if semantic:
+            from veritext.similarity.semantic import (
+                DEFAULT_SIMILARITY_THRESHOLD,
+                DEFAULT_MIN_CONSECUTIVE_WINDOWS,
+            )
+            print("  Effective Semantic Settings:")
+            print(f"    - Threshold (cosine):            {DEFAULT_SIMILARITY_THRESHOLD}")
+            print(f"    - Min consecutive windows:       {DEFAULT_MIN_CONSECUTIVE_WINDOWS}")
+            print(f"    - Include semantic in headline:  False (Exact & near-copy only by default)")
+            print(f"    - Paraphrase leads tracked:      Separately for review")
+            print(f"    - Lexical anchor rule:           Evaluated (N in {{1, 2, 3, 4}}, ratio in {{0.1, 0.2, 0.3}})")
         print(f"  Deep AI enabled:  {ai}")
         print(f"  Crosslang enabled:{crosslang}")
         print("=" * 60)

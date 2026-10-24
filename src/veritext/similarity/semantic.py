@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 
 from veritext.ingest.models import Document, Sentence
+from veritext.similarity.anchors import (
+    compute_reference_corpus_df,
+    evaluate_span_anchors,
+)
 from veritext.similarity.models import MatchSpan
 from veritext.sources.models import SourceCandidate
 
@@ -221,6 +225,7 @@ def find_semantic_matches(
     word_ranges: Optional[List[Tuple[int, int]]] = None,
     min_consecutive_windows: int = DEFAULT_MIN_CONSECUTIVE_WINDOWS,
     include_single_window: bool = False,
+    reference_df: Optional[Dict[str, int]] = None,
 ) -> List[MatchSpan]:
     """
     Performs semantic vector search using blocked matrix multiplication to detect
@@ -239,6 +244,9 @@ def find_semantic_matches(
     import math
 
     covered_spans = exact_spans or []
+    corpus_df = reference_df
+    if corpus_df is None and candidates:
+        corpus_df = compute_reference_corpus_df([c.text for c in candidates if c.text])
 
     # 1. Prepare document sentence windows not covered by exact matches
     all_windows = build_sentence_windows(document, window_size=2)
@@ -401,6 +409,14 @@ def find_semantic_matches(
             max_run = max((sent_run_length.get(s, 1) for s in w_sents), default=1)
             is_single = max_run < min_consecutive_windows
 
+            # Evaluate lexical anchors against source passage
+            anchor_eval = evaluate_span_anchors(
+                doc_text=w_text,
+                source_text=target_source["text"],
+                cosine_score=score,
+                reference_df=corpus_df,
+            )
+
             # Display semantic-only spans as 'possible paraphrase (review)'
             span_type = "possible paraphrase (review)"
 
@@ -421,6 +437,14 @@ def find_semantic_matches(
                         "is_single_window": is_single,
                         "consecutive_windows": max_run,
                         "include_in_score": (not is_single) or include_single_window,
+                        "lead_level": anchor_eval["lead_level"],
+                        "is_strong_lead": anchor_eval["is_strong_lead"],
+                        "anchor_count": anchor_eval["anchor_count"],
+                        "content_lemma_ratio": anchor_eval["content_lemma_ratio"],
+                        "shared_rare_words": anchor_eval["shared_rare_words"],
+                        "shared_numbers": anchor_eval["shared_numbers"],
+                        "shared_entities": anchor_eval["shared_entities"],
+                        "composite_score": anchor_eval["composite_score"],
                     },
                 )
             )

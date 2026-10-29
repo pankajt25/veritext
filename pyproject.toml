@@ -37,6 +37,7 @@ classifiers = [
 dependencies = [
     "fpdf2>=2.7.0",
     "nltk>=3.8.1",
+    "numpy>=1.24.0",
     "pdfplumber>=0.10.0",
     "pylatexenc>=2.10",
     "python-docx>=1.1.0",
@@ -52,6 +53,7 @@ dependencies = [
 lite = [
     "fpdf2>=2.7.0",
     "nltk>=3.8.1",
+    "numpy>=1.24.0",
     "pdfplumber>=0.10.0",
     "pylatexenc>=2.10",
     "python-docx>=1.1.0",
@@ -59,16 +61,30 @@ lite = [
     "streamlit>=1.32.0",
 ]
 full = [
+    "pypdfium2>=4.20.0",
     "rapidocr-onnxruntime>=1.3.0",
     "sentence-transformers>=2.2.0",
     "torch>=2.0.0",
     "transformers>=4.35.0",
 ]
+api = [
+    "fastapi>=0.100.0",
+    "httpx>=0.24.0",
+    "python-multipart>=0.0.6",
+    "uvicorn>=0.23.0",
+]
+grammar = [
+    "language-tool-python>=2.7.1",
+]
 dev = [
+    "fastapi>=0.100.0",
+    "httpx>=0.24.0",
     "matplotlib>=3.7.0",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "python-multipart>=0.0.6",
     "ruff>=0.1.0",
+    "uvicorn>=0.23.0",
 ]
 
 [project.scripts]

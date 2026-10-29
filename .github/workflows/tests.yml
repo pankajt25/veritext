@@ -7,8 +7,33 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  lint:
+    name: Linting
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff>=0.1.0
+
+      - name: Run Ruff check
+        run: |
+          ruff check .
+
+  fast-tests:
+    name: Fast Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,13 +52,17 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Download NLTK tokenizers
-        run: |
-          python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet')"
+      - name: Cache NLTK data
+        uses: actions/cache@v4
+        with:
+          path: ~/nltk_data
+          key: ${{ runner.os }}-nltk-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-nltk-
 
-      - name: Lint with Ruff
+      - name: Download NLTK data
         run: |
-          ruff check src/ tests/
+          python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('punkt_tab', quiet=True); nltk.download('wordnet', quiet=True); nltk.download('omw-1.4', quiet=True)"
 
       - name: Run fast test suite
         run: |

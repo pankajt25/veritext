@@ -171,16 +171,17 @@ def extract_metadata_timeline(file_path: Union[str, Path]) -> Dict[str, Any]:
 
 def check_authorship_timeline(document: Union[Document, str, Path]) -> CheckResult:
     """Executes the authorship timeline check with neutral info-level findings."""
+    from veritext.ingest.pipeline import is_existing_file
     doc_path: Optional[Path] = None
-    if isinstance(document, (str, Path)):
+    if is_existing_file(document):
         doc_path = Path(document)
-    elif isinstance(document, Document) and document.path:
+    elif isinstance(document, Document) and document.path and is_existing_file(document.path):
         doc_path = Path(document.path)
 
     findings: List[Finding] = []
     meta_info: Dict[str, Any] = {}
 
-    if doc_path and doc_path.is_file():
+    if doc_path:
         meta_info = extract_metadata_timeline(doc_path)
         events = meta_info.get("events", [])
         props = meta_info.get("properties", {})

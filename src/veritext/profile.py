@@ -13,7 +13,7 @@ import re
 from typing import Any, Dict, List, Optional, Set, Union
 
 from veritext.ingest.models import Document
-from veritext.ingest.pipeline import load_document
+from veritext.ingest.pipeline import is_existing_file, load_document
 
 # Common stopwords for fast heuristic language identification
 STOPWORDS: Dict[str, Set[str]] = {
@@ -134,9 +134,8 @@ def profile_document(document: Union[Document, str, Path]) -> DocumentProfile:
         DocumentProfile containing size metrics, page estimates, language, and size class.
     """
     if isinstance(document, (str, Path)):
-        doc_path = Path(document)
-        if doc_path.exists() and doc_path.is_file():
-            doc = load_document(doc_path)
+        if is_existing_file(document):
+            doc = load_document(Path(document))
         else:
             from veritext.ingest.models import Paragraph
             raw = str(document)

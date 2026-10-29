@@ -20,7 +20,7 @@ from veritext.ai_detect.features_style import compute_stylometric_features
 from veritext.ai_detect.models import AIResult, SentenceAIResult
 from veritext.ai_detect.roberta import classify_roberta, is_roberta_available
 from veritext.ingest.models import Document, Sentence
-from veritext.ingest.pipeline import load_document
+from veritext.ingest.pipeline import is_existing_file, load_document
 from veritext.ingest.splitter import is_heading_text
 
 logger = logging.getLogger(__name__)
@@ -48,9 +48,8 @@ def detect_ai(
     """
     # 1. Normalize input to Document
     if isinstance(document, (str, Path)):
-        doc_path = Path(document)
-        if doc_path.exists() and doc_path.is_file():
-            doc = load_document(doc_path)
+        if is_existing_file(document):
+            doc = load_document(Path(document))
         else:
             # Direct text string
             raw = str(document)

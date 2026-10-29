@@ -124,9 +124,9 @@ def check_self_plagiarism(
         CheckResult containing self-plagiarism findings.
     """
     if isinstance(document, (str, Path)):
-        doc_path = Path(document)
-        if doc_path.exists() and doc_path.is_file():
-            doc = load_document(doc_path)
+        from veritext.ingest.pipeline import is_existing_file
+        if is_existing_file(document):
+            doc = load_document(Path(document))
         else:
             doc = Document(
                 raw_text=str(document),

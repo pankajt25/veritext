@@ -40,8 +40,9 @@ def run_all_checks(
     """
     doc_path: Optional[Path] = None
     if isinstance(document, (str, Path)):
-        doc_path = Path(document)
-        if doc_path.exists() and doc_path.is_file():
+        from veritext.ingest.pipeline import is_existing_file
+        if is_existing_file(document):
+            doc_path = Path(document)
             # If code file, do not load as academic document
             if doc_path.suffix.lower() in SUPPORTED_CODE_EXTENSIONS:
                 doc = Document(

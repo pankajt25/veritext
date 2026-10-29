@@ -1,13 +1,30 @@
 """Main pipeline for loading and processing documents into Document objects."""
 
 from pathlib import Path
-from typing import List, Union
+from typing import Any, List, Union
 
 from veritext.ingest.cleaner import clean_text
 from veritext.ingest.latex import process_latex
 from veritext.ingest.loaders import load_docx, load_pdf, read_text_file
 from veritext.ingest.models import Document, RemovedSection
 from veritext.ingest.splitter import split_paragraphs, split_sentences
+
+
+def is_existing_file(path_or_str: Any) -> bool:
+    """Check if the argument is a valid existing file path without throwing OSError for long strings."""
+    if isinstance(path_or_str, Path):
+        try:
+            return path_or_str.is_file()
+        except (OSError, ValueError):
+            return False
+    if isinstance(path_or_str, str):
+        if "\n" in path_or_str or "\r" in path_or_str or len(path_or_str) > 1024:
+            return False
+        try:
+            return Path(path_or_str).is_file()
+        except (OSError, ValueError):
+            return False
+    return False
 
 
 def load_document(path: Union[str, Path]) -> Document:
@@ -19,9 +36,10 @@ def load_document(path: Union[str, Path]) -> Document:
         Document with raw_text, clean_text, sentences (text, start, end),
         paragraphs, removed_sections, and file_type.
     """
-    file_path = Path(path)
-    if not file_path.exists():
+    if not is_existing_file(path):
         raise FileNotFoundError(f"File not found: {path}")
+
+    file_path = Path(path)
 
     ext = file_path.suffix.lower()
     file_type = ext.lstrip(".")

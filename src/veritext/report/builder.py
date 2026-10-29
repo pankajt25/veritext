@@ -36,8 +36,9 @@ def build_report(
     """
     doc_path: Optional[str] = None
     if isinstance(document, (str, Path)):
-        p = Path(document)
-        if p.exists() and p.is_file():
+        from veritext.ingest.pipeline import is_existing_file
+        if is_existing_file(document):
+            p = Path(document)
             doc = load_document(p)
             doc_path = str(p.resolve())
             doc_name = p.name

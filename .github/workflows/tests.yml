@@ -9,14 +9,15 @@ on:
 jobs:
   lint:
     name: Linting
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04 to avoid breaking changes when ubuntu-latest migrates to Ubuntu 26; review when 24.04 is retired.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -32,14 +33,15 @@ jobs:
 
   fast-tests:
     name: Fast Test Suite
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04 to avoid breaking changes when ubuntu-latest migrates to Ubuntu 26; review when 24.04 is retired.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -53,7 +55,7 @@ jobs:
           pip install -e .
 
       - name: Cache NLTK data
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/nltk_data
           key: ${{ runner.os }}-nltk-${{ hashFiles('requirements.txt') }}
